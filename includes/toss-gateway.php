@@ -7,8 +7,6 @@ use MPHB\Entities\Payment;
 use MPHB\Payments\Gateways\Gateway;
 use MPHB\Payments\Gateways\Toss\TossAPI;
 // Removed use statement for non-existent TossException
-use MPHB\Payments\Gateways\Toss\Admin\TossAdminFieldProvider; // Assuming Admin sub-namespace
-use MPHB\Payments\Gateways\Toss\Admin\TossAdminRegistrar; // Assuming Admin sub-namespace
 
 // 직접 접근 방지
 if (!defined('ABSPATH')) {
@@ -23,13 +21,9 @@ class TossGateway extends Gateway {
     protected $secretKey = '';
     protected $enabled = true;
 
-    protected $adminRegistrar;
+    // protected $adminRegistrar;
 
     public function __construct() {        
-        // 의존성이 필요한 서비스 인스턴스 생성
-        $adminFieldProvider = new TossAdminFieldProvider($this);
-        $this->adminRegistrar = new TossAdminRegistrar($this, $adminFieldProvider, $this->statusChecker);
-
         parent::__construct(); // 부모 생성자 호출 -> setupProperties 호출됨
 
         // 훅 등록 (registerHooks 호출 추가)
@@ -67,7 +61,7 @@ class TossGateway extends Gateway {
         $this->secretKey = $this->getOption('secret_key');
 
         // 관리자 설명은 AdminRegistrar 통해 설정
-        $this->adminDescription = $this->adminRegistrar->getAdminDescription();
+        // $this->adminDescription = $this->adminRegistrar->getAdminDescription();
 
         // Note: wp_enqueue_scripts hook moved to registerHooks
     }
