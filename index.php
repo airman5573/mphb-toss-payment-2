@@ -4,7 +4,7 @@
  * Plugin URI:        #
  * Description:       Integrates Toss Payments with MotoPress Hotel Booking plugin.
  * Version:           1.0.0
- * Author:            Your Name
+ * Author:            Shoplic
  * Author URI:        #
  * License:           GPL v2 or later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -30,7 +30,7 @@ define( 'MPHB_TOSS_PAYMENTS_PLUGIN_FILE', __FILE__ );
  */
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-gateway.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-api.php';
-require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-callbacks.php';
+// require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-callbacks.php'; // File missing, commented out to prevent fatal error
 
 // Admin specific includes
 if ( is_admin() ) {
@@ -44,7 +44,7 @@ if ( is_admin() ) {
  * @return array
  */
 function mphb_toss_register_gateway( $gateways ) {
-    $gateways['toss'] = 'MPHB\TossPayments\TossGateway';
+    $gateways['toss'] = 'MPHB\Payments\Gateways\TossGateway'; // Corrected namespace
     return $gateways;
 }
 add_filter( 'mphb_payment_gateways', 'mphb_toss_register_gateway' );
@@ -54,7 +54,8 @@ add_filter( 'mphb_payment_gateways', 'mphb_toss_register_gateway' );
  */
 function mphb_toss_init_admin() {
     if ( is_admin() ) {
-        new MPHB\TossPayments\Admin\TossAdminSetup();
+        // Assuming TossAdminSetup is in the same Admin sub-namespace
+        new MPHB\Payments\Gateways\Toss\Admin\TossAdminSetup(); 
     }
 }
 add_action( 'plugins_loaded', 'mphb_toss_init_admin' );

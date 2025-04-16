@@ -1,30 +1,30 @@
 <?php
-namespace MPHB\Payments\Gateways\Toss\Service;
+namespace MPHB\Payments\Gateways\Toss\Admin; // Corrected namespace
 
 use MPHB\Admin\Fields\FieldFactory;
 use MPHB\Admin\Groups;
-use MPHB\Payments\Gateways\TossGateway;
+use MPHB\Payments\Gateways\TossGateway; // Corrected use statement target namespace
+// Removed use statement for non-existent TossStatusChecker
 
 /**
  * Handles Toss Payments admin settings registration and display.
  */
-class AdminSetup {
+class TossAdminSetup { // Renamed class
 
     private $gateway;
-    private $statusChecker; // Assuming TossStatusChecker exists or will be added
+    // Removed $statusChecker property
 
     /**
      * Constructor
      * 
-     * @param TossGateway $gateway Toss Gateway instance
-     * @param TossStatusChecker|null $statusChecker Status checker service (optional)
+     * @param \MPHB\Payments\Gateways\TossGateway $gateway Toss Gateway instance (using FQCN for clarity)
      */
     public function __construct(
-        TossGateway $gateway,
-        ?TossStatusChecker $statusChecker = null
+        \MPHB\Payments\Gateways\TossGateway $gateway // Using FQCN for clarity
+        // Removed TossStatusChecker parameter
     ) {
         $this->gateway = $gateway;
-        $this->statusChecker = $statusChecker ?? new TossStatusChecker(); // Assuming TossStatusChecker exists or will be added
+        // Removed assignment for $statusChecker
     }
 
     // --- Field Creation Methods (from TossAdminFieldProvider) ---
@@ -164,6 +164,4 @@ class AdminSetup {
     }
 }
 
-// Note: The TossStatusChecker class used in the constructor 
-// was not provided in the original files. You might need to define it 
-// or ensure it's available elsewhere in your project.
+// Note: References to the non-existent TossStatusChecker class have been removed.

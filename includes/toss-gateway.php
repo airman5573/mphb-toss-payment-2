@@ -5,10 +5,10 @@ namespace MPHB\Payments\Gateways;
 use MPHB\Entities\Booking;
 use MPHB\Entities\Payment;
 use MPHB\Payments\Gateways\Gateway;
-use MPHB\Payments\Gateways\Toss\Service\TossAPI; // Correct namespace
-use MPHB\Payments\Gateways\Toss\TossException; // Correct namespace
-use MPHB\Payments\Gateways\Toss\AdminFieldProvider; // Assuming this exists
-use MPHB\Payments\Gateways\Toss\TossAdminRegistrar; // Assuming this exists
+use MPHB\Payments\Gateways\Toss\TossAPI;
+// Removed use statement for non-existent TossException
+use MPHB\Payments\Gateways\Toss\Admin\TossAdminFieldProvider; // Assuming Admin sub-namespace
+use MPHB\Payments\Gateways\Toss\Admin\TossAdminRegistrar; // Assuming Admin sub-namespace
 
 // 직접 접근 방지
 if (!defined('ABSPATH')) {
@@ -130,8 +130,8 @@ class TossGateway extends Gateway {
         $isDebug = MPHB()->settings()->main()->isDebugMode();
 
         try {
-            // Use the correct namespace for TossAPI
-            $tossApi = new \MPHB\Payments\Gateways\Toss\Service\TossAPI($secretKey, $isDebug);
+            // Use the imported TossAPI class
+            $tossApi = new TossAPI($secretKey, $isDebug);
         } catch (\Exception $e) {
             MPHB()->log()->error(sprintf('[%s] Failed to initialize Toss API: %s', __METHOD__, $e->getMessage()));
             wp_die(__('Failed to initialize payment service.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 500]);
@@ -209,28 +209,28 @@ class TossGateway extends Gateway {
                 exit;
             }
 
-        } catch (TossException $e) {
-            // --- Payment Failure (API Exception) ---
-            MPHB()->log()->error(sprintf('[%s] Toss API Exception during confirmation for Payment ID %d: [%s] %s', __METHOD__, $payment_id, $e->getErrorCode(), $e->getMessage()));
+        // Removed specific catch for non-existent TossException. 
+        // The generic \Exception catch below will handle API errors.
+
+        } catch (\Exception $e) { 
+            // --- Payment Failure (API or General Exception) ---
+            // Log potentially more specific error if available from TossAPI response, otherwise log general message
+            $errorCode = method_exists($e, 'getErrorCode') ? $e->getErrorCode() : 'GENERAL_ERROR'; // Check if method exists
+            MPHB()->log()->error(sprintf('[%s] Exception during confirmation for Payment ID %d: [%s] %s', __METHOD__, $payment_id, $errorCode, $e->getMessage()));
 
             $payment->setStatus(Payment::STATUS_FAILED);
-            $payment->addNote(sprintf(__('Toss payment confirmation failed. Error: [%s] %s', 'mphb-toss'), $e->getErrorCode(), $e->getMessage()));
+            // Provide a slightly more informative note if possible
+            $note = sprintf(__('Toss payment confirmation failed. Error: [%s] %s', 'mphb-toss'), $errorCode, $e->getMessage());
+            $payment->addNote($note);
             $payment->save();
 
+            // Redirect to failure URL instead of wp_die for better user experience
             $failure_url = add_query_arg(['payment_status' => 'failed', 'reason' => urlencode($e->getMessage())], $booking->getCheckoutUrl());
             wp_safe_redirect($failure_url);
             exit;
-
-        } catch (\Exception $e) {
-            // --- Payment Failure (General Exception) ---
-            MPHB()->log()->error(sprintf('[%s] General Exception during confirmation for Payment ID %d: %s', __METHOD__, $payment_id, $e->getMessage()));
-
-            $payment->setStatus(Payment::STATUS_FAILED);
-            $payment->addNote(sprintf(__('An unexpected error occurred during payment confirmation: %s', 'mphb-toss'), $e->getMessage()));
-            $payment->save();
-
-            wp_die(__('An unexpected error occurred during payment processing.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 500]);
-            exit;
+            
+            // wp_die(__('An unexpected error occurred during payment processing.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 500]); // Replaced with redirect
+            // exit; // exit is called by wp_safe_redirect
         }
     } // end handle_toss_callback
 
