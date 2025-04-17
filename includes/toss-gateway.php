@@ -266,8 +266,7 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
             }
         }
     }
-
-
+    
     protected function getFailureRedirectUrl(?Booking $booking, string $reason): string
     {
         $pages = MPHB()->settings()->pages();
