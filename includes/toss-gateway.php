@@ -27,16 +27,10 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         $this->registerHooks();
     }
 
-    /**
-     * Registers option fields in the admin settings screen.
-     *
-     * @param object $subTab Settings tab object
-     */
     public function registerOptionsFields(&$subTab): void
     {
         $gatewayId = $this->getId();
 
-        // Main group fields
         $mainGroupFields = [
             Fields\FieldFactory::create("mphb_payment_gateway_{$gatewayId}_title", [
                 'type'         => 'text',
@@ -60,7 +54,6 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         $mainGroup->addFields($mainGroupFields);
         $subTab->addGroup($mainGroup);
 
-        // API group fields
         $apiGroupFields = [
             Fields\FieldFactory::create("mphb_payment_gateway_{$gatewayId}_client_key", [
                 'type'        => 'text',
@@ -84,7 +77,6 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         $apiGroup->addFields($apiGroupFields);
         $subTab->addGroup($apiGroup);
 
-        // SSL Recommendation
         if (!MPHB()->isSiteSSL()) {
             $sslWarn = __('<strong>권고:</strong> 사이트에 SSL(https://)을 적용해 주세요. Toss 결제는 SSL 환경에서만 정상적으로 동작합니다.', 'mphb-toss');
             $enableField = $subTab->findField("mphb_payment_gateway_{$gatewayId}_enable");
@@ -94,9 +86,6 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         }
     }
 
-    /**
-     * Register WordPress hooks.
-     */
     protected function registerHooks(): void
     {
         add_action('init', [$this, 'handleTossCallback'], 11);
@@ -125,10 +114,8 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         $this->secretKey     = $this->getOption('secret_key');
     }
 
-    // Toss 활성화 조건: 필수키 및 통화까지 체크
     public function isActive()
     {
-        return true;
         $currency = strtoupper(MPHB()->settings()->currency()->getCurrencyCode());
         return parent::isActive() &&
             !empty($this->getClientKey()) &&
@@ -151,9 +138,6 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         return $this->getOption('secret_key');
     }
 
-    /**
-     * 결제 시작시 Toss Checkout(프론트 결제창)으로 리디렉트
-     */
     public function processPayment(Booking $booking, Payment $payment): array
     {
         $redirectUrl = home_url('/toss-checkout');
@@ -187,7 +171,7 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         $payment = MPHB()->getPaymentRepository()->findById($paymentId);
 
         if (!$booking || !$payment || $payment->getBookingId() !== $booking->getId()) {
-            function_exists('ray') && ray('[TossAPI] > [handleTossCallback] [TossCallback] 예약-결제 ID 불일치', $_GET);
+            function_exists('ray') && ray('[TossGateway::handleTossCallback] 예약-결제 ID 불일치', $_GET);
             wp_die(__('Invalid booking/payment relation.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 404]);
         }
 
@@ -224,7 +208,8 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
 
                     MPHB()->paymentManager()->completePayment($payment, $note);
                     $booking->addLog($note);
-                    $booking->confirm();
+
+                    // Don't call $booking->confirm(), not supported! Only manage status by MPHB paymentManager
 
                     do_action('mphb_toss_payment_confirmed', $booking, $payment, $result);
                     wp_safe_redirect($booking->getBookingConfirmationUrl());
@@ -246,13 +231,6 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         }
     }
 
-    /**
-     * 결제 실패(또는 예외)시 리다이렉트될 URL 반환
-     *
-     * @param Booking|null $booking
-     * @param string $reason
-     * @return string
-     */
     protected function getFailureRedirectUrl(?Booking $booking, string $reason): string
     {
         $pages = MPHB()->settings()->pages();
