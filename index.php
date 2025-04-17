@@ -11,6 +11,7 @@ if (!defined('WPINC')) {
 # 토스페이먼츠 결제 했을때 결제수단 나오도록
 # toss-checkout에서 예약 정보 보여주기 + 결제창 먼저 띄우고 취소해도 다시 버튼 누르면 결제할 수 있도록
 # 환불해주는 함수 만들기
+# booking id와 payment id 둘다 넣지 말고 booking_id & booking_key 이렇게 2개만 쓰자
 
 define('MPHB_TOSS_PAYMENTS_VERSION', '1.0.0');
 define('MPHB_TOSS_PAYMENTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
