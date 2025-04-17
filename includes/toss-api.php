@@ -1,8 +1,8 @@
 <?php
-namespace MPHB\Payments\Gateways\Toss\Service;
+namespace MPHBTOSS;
 
 use WP_Error;
-use MPHB\Payments\Gateways\Toss\TossException;
+use MPHBTOSS\TossException;
 
 if (!defined('ABSPATH')) {
     exit;

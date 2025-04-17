@@ -12,13 +12,13 @@
  * Domain Path:       /languages
  */
 
-// If this file is called directly, abort.
+// Exit if accessed directly.
 if ( ! defined( 'WPINC' ) ) {
-	die;
+    exit;
 }
 
 /**
- * Define constants
+ * Define plugin constants
  */
 define( 'MPHB_TOSS_PAYMENTS_VERSION', '1.0.0' );
 define( 'MPHB_TOSS_PAYMENTS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -26,113 +26,125 @@ define( 'MPHB_TOSS_PAYMENTS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MPHB_TOSS_PAYMENTS_PLUGIN_FILE', __FILE__ );
 
 /**
- * Include necessary files
+ * Include core files
  */
+require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-exception.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-gateway.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-api.php';
-// require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-callbacks.php'; // File missing, commented out to prevent fatal error
-
-// Admin specific includes
-if ( is_admin() ) {
-    require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/admin/toss-admin-setup.php';
-}
 
 /**
  * Register Toss Payments Gateway with MPHB
- *
- * @param array $gateways
- * @return array
  */
-function mphb_toss_register_gateway( $gateways ) {
-    $gateways['toss'] = 'MPHB\Payments\Gateways\TossGateway'; // Corrected namespace
-    return $gateways;
-}
-add_filter( 'mphb_payment_gateways', 'mphb_toss_register_gateway' );
+add_action( 'plugins_loaded', function() {
+    new \MPHBTOSS\TossGateway();
+}, 9 );
 
-/**
- * Initialize admin features
- */
-function mphb_toss_init_admin() {
-    if ( is_admin() ) {
-        // Assuming TossAdminSetup is in the same Admin sub-namespace
-        new MPHB\Payments\Gateways\Toss\Admin\TossAdminSetup(); 
-    }
-}
-add_action( 'plugins_loaded', 'mphb_toss_init_admin' );
-
-/**
- * Add Toss Checkout Shortcode
- * This shortcode retrieves payment details based on payment_id from the URL
- * and initiates the Toss Payments SDK flow, using both booking_id and payment_id from URL.
- */
 function mphb_toss_checkout_shortcode() {
-    // Check for both booking_id and payment_id
-    if ( ! isset( $_GET['booking_id'] ) || ! is_numeric( $_GET['booking_id'] ) ) {
-        return '<p>' . esc_html__( 'Error: Invalid or missing Booking ID.', 'mphb-toss-payments' ) . '</p>';
-    }
-    if ( ! isset( $_GET['payment_id'] ) || ! is_numeric( $_GET['payment_id'] ) ) {
-        // Decide how critical payment_id is here. If it's just for the order_id, maybe allow proceeding?
-        // For now, let's require it as per the user's statement.
-        return '<p>' . esc_html__( 'Error: Invalid or missing Payment ID.', 'mphb-toss-payments' ) . '</p>';
-    }
+    ob_start();
 
-    $booking_id = intval( $_GET['booking_id'] );
-    $payment_id = intval( $_GET['payment_id'] ); // Store payment_id as well
-    $booking = MPHB\Entities\Booking::findById( $booking_id ); // Fetch booking using booking_id
+    // GET 파라미터에서 ID를 안전하게 추출
+    $booking_id = isset($_GET['booking_id']) ? absint($_GET['booking_id']) : 0;
+    $payment_id = isset($_GET['payment_id']) ? absint($_GET['payment_id']) : 0;
 
-    if ( ! $booking ) {
-        return '<p>' . esc_html__( 'Error: Booking not found for the provided Booking ID.', 'mphb-toss-payments' ) . '</p>';
+    if ($booking_id <= 0) {
+        echo '<p>' . esc_html__('Error: Invalid or missing Booking ID.', 'mphb-toss-payments') . '</p>';
+        return ob_get_clean();
+    }
+    if ($payment_id <= 0) {
+        echo '<p>' . esc_html__('Error: Invalid or missing Payment ID.', 'mphb-toss-payments') . '</p>';
+        return ob_get_clean();
     }
 
-    // Ensure the booking status is appropriate for payment (e.g., pending confirmation)
-    // Add status check if needed, e.g.:
-    // if ($booking->getStatus() !== 'pending_confirmation') { ... }
+    // Booking 엔티티 획득 (공식 Repository 사용)
+    $bookingRepository = MPHB()->getBookingRepository();
+    $booking = $bookingRepository->findById($booking_id);
 
-    $gateway = MPHB()->settings()->gateways()->getGateway( 'toss' );
-    if ( ! $gateway || ! $gateway->isEnabled() ) {
-        return '<p>' . esc_html__( 'Error: Toss Payments gateway is not enabled or configured.', 'mphb-toss-payments' ) . '</p>';
+    if ( !$booking || !($booking instanceof \MPHB\Entities\Booking) ) {
+        echo '<p>' . esc_html__('Error: Booking not found for the provided Booking ID.', 'mphb-toss-payments') . '</p>';
+        return ob_get_clean();
     }
 
-    $client_key = $gateway->getOption( 'client_key' );
-    // Generate a unique customer key, e.g., based on booking ID or user ID
-    $customer_key = 'cust_' . ($booking->getCustomerId() ? $booking->getCustomerId() : $booking_id . '_' . time()); // Use customer ID if available, otherwise generate one based on booking_id
+    // Payment 엔티티 획득 (공식 Repository 사용)
+    $paymentRepository = MPHB()->getPaymentRepository();
+    $payment = $paymentRepository->findById($payment_id);
 
-
-    if ( empty( $client_key ) ) {
-         return '<p>' . esc_html__( 'Error: Toss Payments Client Key is missing.', 'mphb-toss-payments' ) . '</p>';
+    if ( !$payment || !($payment instanceof \MPHB\Entities\Payment) ) {
+        echo '<p>' . esc_html__('Error: Payment not found for the provided Payment ID.', 'mphb-toss-payments') . '</p>';
+        return ob_get_clean();
     }
 
-    $amount = $booking->getTotalPrice();
-    $order_name = sprintf( __( 'Booking #%d Payment', 'mphb-toss-payments' ), $booking_id );
+    // 해당 Payment가 실제 Booking과 매칭되는지 체크 (데이터 정합성 강화)
+    if ( method_exists( $payment, 'getBookingId') && $payment->getBookingId() != $booking_id ) {
+        echo '<p>' . esc_html__('Error: Payment does not match the Booking.', 'mphb-toss-payments') . '</p>';
+        return ob_get_clean();
+    }
+
+    // Gateway 객체를 공식적으로 추출
+    $gateway = MPHB()->gatewayManager()->getGateway('toss');
+    if (!$gateway || !$gateway->isEnabled() || !$gateway->isActive()) {
+        echo '<p>' . esc_html__('Error: Toss Payments gateway is not enabled or configured.', 'mphb-toss-payments') . '</p>';
+        return ob_get_clean();
+    }
+    $client_key = trim($gateway->getClientKey());
+    if (empty($client_key)) {
+        echo '<p>' . esc_html__('Error: Toss Payments Client Key is missing.', 'mphb-toss-payments') . '</p>';
+        return ob_get_clean();
+    }
+
+    // 결제 금액 추출 (booking 기준)
+    $amount = (float) $booking->getTotalPrice();
+    if ($amount <= 0) {
+        echo '<p>' . esc_html__('Error: Payment amount must be greater than 0.', 'mphb-toss-payments') . '</p>';
+        return ob_get_clean();
+    }
+
+    // 고객 정보 추출
     $customer = $booking->getCustomer();
-    $customer_email = $customer ? $customer->getEmail() : '';
-    $customer_name = $customer ? trim( $customer->getFirstName() . ' ' . $customer->getLastName() ) : '';
+    $customer_email = $customer ? sanitize_email($customer->getEmail()) : '';
+    $customer_name  = $customer ? sanitize_text_field( trim($customer->getFirstName() . ' ' . $customer->getLastName() ) ) : '';
 
-    // Construct Success and Fail URLs
-    // Success URL: Where Toss redirects after successful payment. Usually the booking confirmation page.
-    // Fail URL: Where Toss redirects after failed payment. Could be the checkout page again or a specific failure page.
-    $success_url = add_query_arg( [
-        'callback_type' => 'success',
-        'mphb_payment_gateway' => 'toss',
-        'booking_id' => $booking_id, // Pass booking_id back
-        'payment_id' => $payment_id, // Pass payment_id back
-        // Toss will append paymentKey, orderId, amount automatically
-    ], MPHB()->settings()->pages()->getBookingConfirmationPageUrl() ); // Use MPHB's confirmation page URL
+    // 세션 아이디 공식 메서드 활용
+    $session_id = (new \MPHB\Session())->get_id();
+    // 고객키 생성: booking에 customer id가 있다면, 없으면 세션 기반
+    $customer_key = $customer && method_exists($customer, 'getCustomerId') && $customer->getCustomerId()
+        ? 'cust_' . $customer->getCustomerId()
+        : 'sid_' . $session_id . '_' . $booking_id;
 
-    // Fail URL - Redirect back to the page with the shortcode, perhaps with an error flag
-    $fail_url = add_query_arg( [
-        'callback_type' => 'fail',
-        'mphb_payment_gateway' => 'toss',
-        'booking_id' => $booking_id, // Pass booking_id back
-        // Toss will append errorCode, errorMessage, orderId automatically
-    ], get_permalink() ); // Redirect back to the current page (where the shortcode is)
+    // 오더ID 생성: mphb_{booking_id}_{payment_id}
+    $order_id = sprintf('mphb_%d_%d', $booking_id, $payment_id);
 
-    $paymentData = [
+    // 오더이름은 gateway 객체로 생성 (getTitle 사용도 가능)
+    $order_name = method_exists($gateway, 'generateItemName')
+        ? $gateway->generateItemName($booking)
+        : sprintf(__('Booking #%d Payment', 'mphb-toss-payments'), $booking_id);
+
+    // 성공/실패 URL (공식 메서드 + add_query_arg)
+    $settings = MPHB()->settings()->pages();
+    $success_url = add_query_arg(
+        [
+            'callback_type' => 'success',
+            'mphb_payment_gateway' => 'toss',
+            'booking_id' => $booking_id,
+            'payment_id' => $payment_id
+        ],
+        home_url()
+    );
+    $fail_url = add_query_arg(
+        [
+            'callback_type' => 'fail',
+            'mphb_payment_gateway' => 'toss',
+            'booking_id' => $booking_id,
+            'payment_id' => $payment_id
+        ],
+        home_url()
+    );
+
+    // Toss 체크아웃에 필요한 데이터 구성
+    $payment_data = [
         'client_key'     => $client_key,
         'customer_key'   => $customer_key,
         'amount'         => $amount,
-        // Combine booking_id, payment_id, and timestamp for a unique and informative order_id
-        'order_id'       => sprintf( 'mphb_%d_%d_%d', $booking_id, $payment_id, time() ),
+        'order_id'       => $order_id,
         'order_name'     => $order_name,
         'customer_email' => $customer_email,
         'customer_name'  => $customer_name,
@@ -140,72 +152,104 @@ function mphb_toss_checkout_shortcode() {
         'fail_url'       => $fail_url,
     ];
 
-    ob_start();
+    function_exists('ray') && ray('paymentData', $paymentData);
+    
     ?>
     <div id="toss-payment-widget"></div>
-    <script src="https://js.tosspayments.com/v1"></script>
+    <script src="https://js.tosspayments.com/v2/standard"></script>
     <script>
-        jQuery(function($) {
-            (async function() {
-                try {
-                    // 필수 데이터 검증
-                    const paymentData = <?php echo wp_json_encode($paymentData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
-                    const requiredKeys = ['client_key', 'customer_key', 'amount', 'order_id', 'order_name', 'success_url', 'fail_url'];
-                    for (const key of requiredKeys) {
-                        if (!paymentData[key]) throw new Error(`Missing required payment data: ${key}`);
+    jQuery(function($) {
+        // 안전하게 TossPayments 로드 확인
+        if (typeof TossPayments !== 'function') {
+            alert('<?php echo esc_js(__('TossPayments 라이브러리를 불러오지 못했습니다. 새로고침 해주세요.', 'mphb-toss-payments')); ?>');
+            return;
+        }
+
+        // PHP → JS, 데이터 안전 전달
+        const clientKey     = <?php echo wp_json_encode($client_key); ?>;
+        const customerKey   = <?php echo wp_json_encode($customer_key); ?>;
+        const amount        = { currency: "KRW", value: <?php echo (float) $payment_data['amount']; ?> };
+        const orderId     = <?php echo wp_json_encode((string) $payment_data['order_id']); ?>;
+        const orderName   = <?php echo wp_json_encode((string) $payment_data['order_name']); ?>;
+        const successUrl    = <?php echo wp_json_encode($payment_data['success_url']); ?>;
+        const failUrl       = <?php echo wp_json_encode($payment_data['fail_url']); ?>;
+        const customerEmail = <?php echo wp_json_encode($payment_data['customer_email']); ?>;
+        const customerName  = <?php echo wp_json_encode($payment_data['customer_name']); ?>;
+
+        console.log('payment data', [
+            clientKey,
+            customerKey,
+            amount,
+            orderId,
+            orderName,
+            successUrl,
+            failUrl,
+            customerEmail,
+            customerName
+        ]);
+
+        // 결제버튼 생성
+        const paymentBtn = $('<button>')
+            .text('<?php echo esc_js(__('토스로 결제하기', 'mphb-toss-payments')); ?>')
+            .css({
+                padding: '12px 28px',
+                fontSize: '18px',
+                cursor: 'pointer',
+                margin: '32px auto',
+                display: 'block',
+                borderRadius: '8px',
+                background: '#005be2',
+                color: '#fff',
+                border: 'none'
+            });
+
+        $('#toss-payment-widget').append(paymentBtn);
+
+        paymentBtn.on('click', function () {
+            try {
+                const tossPayments = TossPayments(clientKey);
+                const payment = tossPayments.payment({customerKey: customerKey});
+
+                // 비동기 결제 요청(최신 방식)
+                (async function() {
+                    try {
+                        await payment.requestPayment({
+                            method: "CARD",
+                            amount,
+                            orderId,
+                            orderName,
+                            successUrl,
+                            failUrl,
+                            customerEmail,
+                            customerName,
+                            card: {
+                                useEscrow: false,
+                                flowMode: "DEFAULT",
+                                useCardPoint: false,
+                                useAppCardOnly: false,
+                            }
+                        });
+                    } catch (error) {
+                        // 콘솔 및 postMessage 에러 처리
+                        console.error('[TossPayments] requestPayment error:', error);
+                        window.parent.postMessage({
+                            tosspayments: true,
+                            type: 'fail',
+                            message: error.message || '<?= esc_js(__('결제 요청 중 오류가 발생했습니다.', 'mphb-toss-payments')); ?>'
+                        }, '*');
+                        alert(error.message || '<?php echo esc_js(__('결제 요청 중 오류가 발생했습니다.', 'mphb-toss-payments')); ?>');
                     }
-                    const amountValue = parseFloat(paymentData.amount);
-                    if (isNaN(amountValue) || amountValue <= 0) throw new Error('Invalid amount provided.');
+                })();
 
-                    // TossPayments SDK 체크 및 초기화
-                    if (typeof window.TossPayments !== 'function') throw new Error('TossPayments SDK not loaded.');
-                    const tossPayments = TossPayments(paymentData.client_key);
-
-                    // ------ Payment Method: CARD ------
-                    await tossPayments.requestPayment({ // <- '카드' for Card method
-                        method: "CARD",
-                        amount: { currency: "KRW", value: amountValue },
-                        orderId: paymentData.order_id,
-                        orderName: paymentData.order_name,
-                        customerEmail: paymentData.customer_email || '',
-                        customerName: paymentData.customer_name || '',
-                        successUrl: paymentData.success_url,
-                        failUrl: paymentData.fail_url,
-                        card: {
-                            useEscrow: false,
-                            flowMode: "DEFAULT",
-                        }
-                        // flowMode: 'DIRECT', // Optional: For specific card flow modes if needed
-                        // cardCompany: null, // Optional: Pre-select card company
-                        // cardInstallmentPlan: null, // Optional: Set installment plan
-                        // maxCardInstallmentPlan: null, // Optional: Limit max installments
-                        // useAppCardOnly: false, // Optional: Force app card usage
-                        // useInternationalCardOnly: false, // Optional: Allow only international cards
-                        // safePay: null, // Optional: For SafePay integration
-                        // useCardPoint: false, // Optional: Enable card points usage
-                        // customerKey: paymentData.customer_key // Pass customerKey here if using Billing Key features later
-                    });
-
-                    // ------ Alternative: Payment Widget ------
-                    // If you want to use the Payment Widget instead of direct card payment:
-                    /*
-                    const paymentWidget = tossPayments.paymentWidget({ customerKey: paymentData.customer_key });
-                    paymentWidget.renderPaymentMethods('#toss-payment-widget', { value: amountValue });
-                    // You would then need a button to trigger:
-                    // paymentWidget.requestPayment({ ... paymentData ... });
-                    */
-
-                } catch (error) {
-                    console.error('[Toss Script] requestPayment error:', error);
-                    // Optionally display error to user or redirect
-                     alert('결제 요청 중 오류가 발생했습니다: ' + error.message);
-                     // Redirect to fail URL might be better UX
-                     // window.location.href = paymentData.fail_url + '&errorCode=' + encodeURIComponent(error.code || 'CLIENT_ERROR') + '&errorMessage=' + encodeURIComponent(error.message);
-                }
-            })();
+            } catch (initError) {
+                // 초기화 자체가 오류일 때
+                alert(initError.message || '<?php echo esc_js(__('토스 페이먼츠 초기화 오류입니다.', 'mphb-toss-payments')); ?>');
+            }
         });
+    });
     </script>
     <?php
+
     return ob_get_clean();
 }
-add_shortcode( 'mphb_toss_checkout', 'mphb_toss_checkout_shortcode' );
+add_shortcode('mphb_toss_checkout', 'mphb_toss_checkout_shortcode');

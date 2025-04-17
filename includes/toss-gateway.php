@@ -1,231 +1,327 @@
 <?php
-namespace MPHB\Payments\Gateways;
+namespace MPHBTOSS;
 
-// 워드프레스 & MPHB 코어
 use MPHB\Entities\Booking;
 use MPHB\Entities\Payment;
-use MPHB\Payments\Gateways\Gateway;
-use MPHB\Payments\Gateways\Toss\TossAPI;
-// Removed use statement for non-existent TossException
+use MPHB\Admin\Groups;
+use MPHB\Admin\Fields;
+use MPHB\PostTypes\PaymentCPT\Statuses as PaymentStatuses;
+use MPHBTOSS\TossAPI;
+use MPHBTOSS\TossException;
 
-// 직접 접근 방지
 if (!defined('ABSPATH')) {
     exit;
 }
 
-
-class TossGateway extends Gateway {
+class TossGateway extends \MPHB\Payments\Gateways\Gateway
+{
     const GATEWAY_ID = 'toss';
 
-    protected $clientKey = '';
-    protected $secretKey = '';
+    protected $client_key = '';
+    protected $secret_key = '';
     protected $enabled = true;
 
-    // protected $adminRegistrar;
+    public function __construct()
+    {
+        parent::__construct();
+        $this->register_hooks();
+    }
 
-    public function __construct() {        
-        parent::__construct(); // 부모 생성자 호출 -> setupProperties 호출됨
+    /**
+     * Registers option fields in the admin settings screen.
+     *
+     * @param object $sub_tab Settings tab object
+     */
+    public function register_options_fields(&$sub_tab): void
+    {
+        $gateway_id = $this->getId();
 
-        // 훅 등록 (registerHooks 호출 추가)
-        $this->registerHooks();
+        // Main group fields
+        $main_group_fields = [
+            Fields\FieldFactory::create("mphb_payment_gateway_{$gateway_id}_title", [
+                'type'         => 'text',
+                'label'        => __('Title', 'motopress-hotel-booking'),
+                'default'      => 'Toss Payments',
+                'translatable' => true,
+            ]),
+            Fields\FieldFactory::create("mphb_payment_gateway_{$gateway_id}_description", [
+                'type'         => 'textarea',
+                'label'        => __('Description', 'motopress-hotel-booking'),
+                'default'      => __('Pay with Toss Payments.', 'motopress-hotel-booking'),
+                'translatable' => true,
+            ]),
+        ];
+
+        $main_group = new Groups\SettingsGroup(
+            "mphb_payments_{$gateway_id}_main",
+            '',
+            $sub_tab->getOptionGroupName()
+        );
+        $main_group->addFields($main_group_fields);
+        $sub_tab->addGroup($main_group);
+
+        // API group fields
+        $api_group_fields = [
+            Fields\FieldFactory::create("mphb_payment_gateway_{$gateway_id}_client_key", [
+                'type'        => 'text',
+                'label'       => __('Client Key', 'mphb-toss'),
+                'default'     => '',
+                'description' => __('Enter your Toss Payments Client Key.', 'mphb-toss'),
+            ]),
+            Fields\FieldFactory::create("mphb_payment_gateway_{$gateway_id}_secret_key", [
+                'type'        => 'text',
+                'label'       => __('Secret Key', 'mphb-toss'),
+                'default'     => '',
+                'description' => __('Enter your Toss Payments Secret Key.', 'mphb-toss'),
+            ]),
+        ];
+
+        $api_group = new Groups\SettingsGroup(
+            "mphb_payments_{$gateway_id}_api",
+            __('API Settings', 'mphb-toss'),
+            $sub_tab->getOptionGroupName()
+        );
+        $api_group->addFields($api_group_fields);
+        $sub_tab->addGroup($api_group);
+
+        // SSL Recommendation
+        if (!MPHB()->isSiteSSL()) {
+            $ssl_warn = __('<strong>권고:</strong> 사이트에 SSL(https://)을 적용해 주세요. Toss 결제는 SSL 환경에서만 정상적으로 동작합니다.', 'mphb-toss');
+            $enable_field = $sub_tab->findField("mphb_payment_gateway_{$gateway_id}_enable");
+            if ($enable_field) {
+                $enable_field->setDescription($ssl_warn);
+            }
+        }
     }
 
     /**
      * Register WordPress hooks.
      */
-    protected function registerHooks(): void {
-        add_action('init', [$this, 'handle_toss_callback']);
-        add_action('wp_enqueue_scripts', [$this, 'enqueueScripts']); // Moved from setupProperties
+    protected function register_hooks(): void
+    {
+        add_action('init', [$this, 'handle_toss_callback'], 11);
+        add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
     }
 
-
-    protected function initId(): string {
+    protected function init_id(): string
+    {
         return self::GATEWAY_ID;
     }
 
-    protected function initDefaultOptions(): array {
-        $options = array_merge(parent::initDefaultOptions(), [
+    protected function init_default_options(): array
+    {
+        return array_merge(parent::initDefaultOptions(), [
             'title'       => __('The Toss Payments Credit Card', 'mphb-toss'),
             'description' => __('Pay with your credit card via Toss Payments.', 'mphb-toss'),
-            'client_key'  => 'test_ck_ma60RZblrqo5YwQmZd6z3wzYWBn1',
-            'secret_key'  => 'test_sk_6BYq7GWPVv2Ryd2QGEm4VNE5vbo1',
+            'client_key'  => '',
+            'secret_key'  => '',
         ]);
-        
-        return $options;
     }
 
-    protected function setupProperties(): void {
+    protected function setup_properties(): void
+    {
         parent::setupProperties();
-        $this->adminTitle = __('Toss Payments', 'mphb-toss');
-        $this->clientKey = $this->getOption('client_key');
-        $this->secretKey = $this->getOption('secret_key');
+        $this->admin_title    = __('Toss Payments', 'mphb-toss');
+        $this->client_key     = $this->getOption('client_key');
+        $this->secret_key     = $this->getOption('secret_key');
+    }
 
-        // 관리자 설명은 AdminRegistrar 통해 설정
-        // $this->adminDescription = $this->adminRegistrar->getAdminDescription();
+    // Toss 활성화 조건: 필수키 및 통화까지 체크
+    public function is_active()
+    {
+        $currency = strtoupper(MPHB()->settings()->currency()->getCurrencyCode());
+        return parent::isActive() &&
+            !empty($this->get_client_key()) &&
+            !empty($this->get_secret_key()) &&
+            $currency === 'KRW';
+    }
 
-        // Note: wp_enqueue_scripts hook moved to registerHooks
+    public function is_enabled()
+    {
+        return $this->is_active();
+    }
+
+    public function get_client_key()
+    {
+        return $this->getOption('client_key');
+    }
+
+    public function get_secret_key()
+    {
+        return $this->getOption('secret_key');
+    }
+
+    public function enqueue_scripts()
+    {
+        if (function_exists('is_page') && is_page('toss-checkout')) {
+            wp_enqueue_script(
+                'mphb-toss-payments',
+                plugins_url('assets/js/toss-checkout.js', MPHB_TOSS_PAYMENTS_PLUGIN_FILE),
+                ['jquery'],
+                MPHB_TOSS_PAYMENTS_VERSION,
+                true
+            );
+
+            $booking_id = isset($_GET['booking_id']) ? absint($_GET['booking_id']) : 0;
+            $payment_id = isset($_GET['payment_id']) ? absint($_GET['payment_id']) : 0;
+            $booking    = $booking_id ? MPHB()->getBookingRepository()->findById($booking_id) : null;
+            $payment    = $payment_id ? MPHB()->getPaymentRepository()->findById($payment_id) : null;
+            $gateway    = MPHB()->gatewayManager()->getGateway('toss');
+
+            if ($booking && $payment && $gateway && $gateway->isEnabled()) {
+                $customer  = $booking->getCustomer();
+                $orderId   = sprintf('mphb_%d_%d', $booking->getId(), $payment->getId());
+
+                $checkout_data = [
+                    'clientKey'     => $gateway->getClientKey(),
+                    'amount'        => (float) $booking->getTotalPrice(),
+                    'orderId'       => $orderId,
+                    'orderName'     => method_exists($gateway, 'generateItemName')
+                        ? $gateway->generateItemName($booking)
+                        : sprintf(__('Booking #%d Payment', 'mphb-toss'), $booking->getId()),
+                    'customerEmail' => $customer ? $customer->getEmail() : '',
+                    'customerName'  => $customer ? $customer->getName() : '',
+                    'successUrl'    => add_query_arg([
+                        'callback_type'         => 'success',
+                        'mphb_payment_gateway'  => 'toss',
+                        'booking_id'            => $booking->getId(),
+                        'payment_id'            => $payment->getId()
+                    ], home_url('/')),
+                    'failUrl'       => add_query_arg([
+                        'callback_type'         => 'fail',
+                        'mphb_payment_gateway'  => 'toss',
+                        'booking_id'            => $booking->getId(),
+                        'payment_id'            => $payment->getId()
+                    ], home_url('/')),
+                    'i18n' => [
+                        'pay_by_toss' => __('토스로 결제하기','mphb-toss'),
+                        'init_error'  => __('TossPayments 라이브러리 로딩 오류', 'mphb-toss')
+                    ]
+                ];
+
+                wp_localize_script('mphb-toss-payments', 'MPHBTossCheckoutData', $checkout_data);
+            }
+        }
     }
 
     /**
-     * Enqueue necessary scripts.
-     * Placeholder - implement if needed.
+     * 결제 시작시 Toss Checkout(프론트 결제창)으로 리디렉트
      */
-    public function enqueueScripts() {
-        // Enqueue scripts specific to Toss checkout if necessary
-    }
-
-    public function processPayment(Booking $booking, Payment $payment): array {
-        $payment_id = $payment->getId();
-        $booking_id = $booking->getId();
-
-        // redirect to '/toss-checkout' page
+    public function process_payment(Booking $booking, Payment $payment): array
+    {
         $redirect_url = home_url('/toss-checkout');
-        $return_url = add_query_arg(['payment_id' => $payment_id, 'booking_id' => $booking_id], $redirect_url);
-        
+        $return_url = add_query_arg([
+            'payment_id' => $payment->getId(),
+            'booking_id' => $booking->getId(),
+        ], $redirect_url);
+
         wp_redirect($return_url);
         exit;
     }
 
     /**
-     * Handles the callback from Toss Payments after successful payment authorization.
-     * Hooked to 'init'.
+     * Toss 결제 콜백 ("성공", "실패" 리다이렉트 모두 처리)
      */
-    public function handle_toss_callback() {
-        // Check if this is a Toss callback request
-        if (!isset($_GET['mphb_toss_return']) || $_GET['mphb_toss_return'] !== '1' || !isset($_GET['paymentKey'])) {
-            return; // Not our request, bail early
+    public function handle_toss_callback()
+    {
+        if (
+            !isset($_GET['mphb_payment_gateway']) ||
+            $_GET['mphb_payment_gateway'] !== self::GATEWAY_ID ||
+            !isset($_GET['callback_type'], $_GET['booking_id'], $_GET['payment_id'])
+        ) {
+            return;
         }
 
-        // Check if gateway is enabled
-        if (!$this->isEnabled()) {
-             error_log('[MPHB Toss] Callback received but gateway is disabled.');
-             // Optionally redirect to a generic error page or home
-             // wp_safe_redirect(home_url('/')); exit;
-             return; // Or just stop processing
+        $callback_type = sanitize_text_field($_GET['callback_type']);
+        $booking_id    = absint($_GET['booking_id']);
+        $payment_id    = absint($_GET['payment_id']);
+
+        $booking = MPHB()->getBookingRepository()->findById($booking_id);
+        $payment = MPHB()->getPaymentRepository()->findById($payment_id);
+
+        if (!$booking || !$payment || $payment->getBookingId() !== $booking->getId()) {
+            MPHB()->log()->error("[TossCallback] 예약-결제 ID 불일치", $_GET);
+            wp_die(__('Invalid booking/payment relation.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 404]);
         }
 
+        if ($callback_type === 'fail') {
+            $fail_log = __('사용자가 결제를 중단하거나 실패했습니다.','mphb-toss');
+            MPHB()->paymentManager()->failPayment($payment, $fail_log);
+            $booking->addLog('Toss 실패 콜백: ' . $fail_log);
 
-        // --- Parameter Retrieval ---
-        $payment_id = isset($_GET['payment_id']) ? intval($_GET['payment_id']) : 0;
-        $booking_id = isset($_GET['booking_id']) ? intval($_GET['booking_id']) : 0;
-        $paymentKey = isset($_GET['paymentKey']) ? sanitize_text_field($_GET['paymentKey']) : '';
-        $tossOrderId = isset($_GET['orderId']) ? sanitize_text_field($_GET['orderId']) : '';
-        $amount = isset($_GET['amount']) ? floatval($_GET['amount']) : 0;
+            do_action('mphb_toss_payment_failed', $booking, $payment, null);
 
-        // --- Basic Validation ---
-        if (empty($payment_id) || empty($booking_id) || empty($paymentKey) || empty($tossOrderId) || empty($amount)) {
-            MPHB()->log()->error(sprintf('[%s] Missing required parameters in Toss callback.', __METHOD__), $_GET);
-            wp_die(__('Invalid payment callback request. Missing parameters.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 400]);
+            $fail_url = $this->get_failure_redirect_url($booking, $fail_log);
+            wp_safe_redirect($fail_url);
             exit;
         }
 
-        // --- Load API ---
-        $secretKey = $this->getOption('secret_key');
-        $isDebug = MPHB()->settings()->main()->isDebugMode();
+        // 성공 콜백
+        if ($callback_type === 'success' && isset($_GET['paymentKey'], $_GET['orderId'], $_GET['amount'])) {
+            $payment_key    = sanitize_text_field($_GET['paymentKey']);
+            $toss_order_id  = sanitize_text_field($_GET['orderId']);
+            $received_amt   = round(floatval($_GET['amount']));
+            $expected_amt   = round(floatval($payment->getAmount()));
+            $expected_order_id = sprintf('mphb_%d_%d', $booking_id, $payment_id);
 
-        try {
-            // Use the imported TossAPI class
-            $tossApi = new TossAPI($secretKey, $isDebug);
-        } catch (\Exception $e) {
-            MPHB()->log()->error(sprintf('[%s] Failed to initialize Toss API: %s', __METHOD__, $e->getMessage()));
-            wp_die(__('Failed to initialize payment service.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 500]);
-            exit;
-        }
+            if ($received_amt !== $expected_amt || $toss_order_id !== $expected_order_id) {
+                wp_die(__('Toss 결제 정보 불일치(금액 또는 주문ID)','mphb-toss'), __('Payment Error','mphb-toss'), ['response' => 400]);
+            }
+            try {
+                $toss_api = new TossAPI($this->get_secret_key(), MPHB()->settings()->main()->isDebugMode());
+                $result = $toss_api->confirmPayment($payment_key, $toss_order_id, (float)$expected_amt);
 
-        // --- Load Booking and Payment ---
-        $payment = MPHB()->paymentRepository()->findById($payment_id);
-        $booking = MPHB()->bookingRepository()->findById($booking_id);
+                if ($result && isset($result->status) && $result->status === 'DONE') {
+                    $payment->setTransactionId($payment_key);
+                    $note = sprintf(__('Toss 결제 승인 성공. 결제키:%s', 'mphb-toss'), $payment_key);
 
-        if (!$payment || !$booking || $payment->getBookingId() !== $booking->getId()) {
-            MPHB()->log()->error(sprintf('[%s] Invalid booking or payment ID in Toss callback. Booking ID: %d, Payment ID: %d', __METHOD__, $booking_id, $payment_id));
-            wp_die(__('Invalid booking or payment information.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 404]);
-            exit;
-        }
+                    MPHB()->paymentManager()->completePayment($payment, $note);
+                    $booking->addLog($note);
+                    $booking->confirm();
 
-        // --- Security and Status Checks ---
+                    do_action('mphb_toss_payment_confirmed', $booking, $payment, $result);
+                    wp_safe_redirect($booking->getBookingConfirmationUrl());
+                    exit;
+                } else {
+                    throw new TossException("Toss API 결과 비정상: " . print_r($result, true));
+                }
+            } catch (\Exception $e) {
+                $err_msg = $e->getMessage();
+                MPHB()->paymentManager()->failPayment($payment, '[Toss API 예외]: ' . $err_msg);
+                $booking->addLog('[Toss] 승인 예외: ' . $err_msg);
 
-        // Check if payment is already completed
-        if ($payment->getStatus() === Payment::STATUS_COMPLETED) {
-            MPHB()->log()->info(sprintf('[%s] Payment %d already completed. Redirecting to booking confirmation.', __METHOD__, $payment_id));
-            wp_safe_redirect($booking->getBookingConfirmationUrl());
-            exit;
-        }
+                do_action('mphb_toss_payment_failed', $booking, $payment, null);
 
-        // Verify amount
-        $expected_amount = round(floatval($payment->getAmount())); // Compare rounded integers (KRW)
-        if ($expected_amount !== round($amount)) {
-            MPHB()->log()->error(sprintf('[%s] Amount mismatch for Payment ID %d. Expected: %s, Received: %s', __METHOD__, $payment_id, $expected_amount, $amount));
-            wp_die(__('Payment amount mismatch.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 400]);
-            exit;
-        }
-
-        // Verify Order ID (adjust based on actual generation)
-        $expectedOrderId = sprintf('mphb-booking-%d-payment-%d', $booking_id, $payment_id); // Example format
-        if ($tossOrderId !== $expectedOrderId) {
-             MPHB()->log()->warning(sprintf('[%s] Toss Order ID mismatch for Payment ID %d. Expected: %s, Received: %s. Proceeding anyway, but check generation logic.', __METHOD__, $payment_id, $expectedOrderId, $tossOrderId));
-             // Consider if this should be fatal
-        }
-
-        // --- Confirm Payment with Toss API ---
-        try {
-            MPHB()->log()->info(sprintf('[%s] Attempting to confirm Toss payment for Payment ID %d, Toss Order ID %s', __METHOD__, $payment_id, $tossOrderId));
-
-            $confirmationResponse = $tossApi->confirmPayment($paymentKey, $tossOrderId, $amount);
-
-            if ($confirmationResponse && isset($confirmationResponse->status) && $confirmationResponse->status === 'DONE') {
-                // --- Payment Success ---
-                MPHB()->log()->info(sprintf('[%s] Toss payment confirmed successfully for Payment ID %d. Toss Payment Key: %s', __METHOD__, $payment_id, $paymentKey));
-
-                $payment->setStatus(Payment::STATUS_COMPLETED);
-                $payment->setTransactionId($paymentKey);
-                $payment->setGatewayMode($this->isTestMode() ? Payment::MODE_TEST : Payment::MODE_LIVE); // Use $this
-                $payment->save();
-                $payment->addNote(sprintf(__('Toss payment completed successfully. Payment Key: %s', 'mphb-toss'), $paymentKey));
-
-                $booking->confirm();
-                MPHB()->log()->info(sprintf('[%s] Booking ID %d confirmed.', __METHOD__, $booking_id));
-
-                wp_safe_redirect($booking->getBookingConfirmationUrl());
-                exit;
-
-            } else {
-                // --- Payment Failure (Confirmation Response) ---
-                $status = $confirmationResponse->status ?? 'UNKNOWN';
-                $failReason = $confirmationResponse->failure->message ?? 'Unknown reason';
-                MPHB()->log()->error(sprintf('[%s] Toss payment confirmation failed for Payment ID %d. Status: %s, Reason: %s', __METHOD__, $payment_id, $status, $failReason));
-
-                $payment->setStatus(Payment::STATUS_FAILED);
-                $payment->addNote(sprintf(__('Toss payment confirmation failed. Status: %s, Reason: %s', 'mphb-toss'), $status, $failReason));
-                $payment->save();
-
-                $failure_url = add_query_arg(['payment_status' => 'failed', 'reason' => urlencode($failReason)], $booking->getCheckoutUrl());
-                wp_safe_redirect($failure_url);
+                $fail_url = $this->get_failure_redirect_url($booking, $err_msg);
+                wp_safe_redirect($fail_url);
                 exit;
             }
-
-        // Removed specific catch for non-existent TossException. 
-        // The generic \Exception catch below will handle API errors.
-
-        } catch (\Exception $e) { 
-            // --- Payment Failure (API or General Exception) ---
-            // Log potentially more specific error if available from TossAPI response, otherwise log general message
-            $errorCode = method_exists($e, 'getErrorCode') ? $e->getErrorCode() : 'GENERAL_ERROR'; // Check if method exists
-            MPHB()->log()->error(sprintf('[%s] Exception during confirmation for Payment ID %d: [%s] %s', __METHOD__, $payment_id, $errorCode, $e->getMessage()));
-
-            $payment->setStatus(Payment::STATUS_FAILED);
-            // Provide a slightly more informative note if possible
-            $note = sprintf(__('Toss payment confirmation failed. Error: [%s] %s', 'mphb-toss'), $errorCode, $e->getMessage());
-            $payment->addNote($note);
-            $payment->save();
-
-            // Redirect to failure URL instead of wp_die for better user experience
-            $failure_url = add_query_arg(['payment_status' => 'failed', 'reason' => urlencode($e->getMessage())], $booking->getCheckoutUrl());
-            wp_safe_redirect($failure_url);
-            exit;
-            
-            // wp_die(__('An unexpected error occurred during payment processing.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 500]); // Replaced with redirect
-            // exit; // exit is called by wp_safe_redirect
         }
-    } // end handle_toss_callback
+    }
 
-} // end class TossGateway
+    /**
+     * 결제 실패(또는 예외)시 리다이렉트될 URL 반환
+     *
+     * @param Booking|null $booking
+     * @param string $reason
+     * @return string
+     */
+    protected function get_failure_redirect_url(?Booking $booking, string $reason): string
+    {
+        $pages = MPHB()->settings()->pages();
+        $url = method_exists($pages, 'getPaymentFailedPageUrl') ? $pages->getPaymentFailedPageUrl() : '';
+
+        if (!$url && $booking instanceof Booking) {
+            $url = $booking->getCheckoutUrl();
+        }
+        if (!$url) {
+            $url = home_url('/');
+        }
+        return add_query_arg([
+            'mphb_payment_status' => 'failed',
+            'mphb_gateway'        => $this->getId(),
+            'reason'              => urlencode($reason),
+            'booking_id'          => $booking ? $booking->getId() : '',
+        ], $url);
+    }
+}
