@@ -116,6 +116,7 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
 
     public function isActive()
     {
+        return true;
         $currency = strtoupper(MPHB()->settings()->currency()->getCurrencyCode());
         return parent::isActive() &&
             !empty($this->getClientKey()) &&
@@ -145,6 +146,8 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
             'payment_id' => $payment->getId(),
             'booking_id' => $booking->getId(),
         ], $redirectUrl);
+
+        function_exists('ray') && ray('returnUrl', $returnUrl);
 
         wp_redirect($returnUrl);
         exit;
@@ -212,7 +215,9 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
                     // Don't call $booking->confirm(), not supported! Only manage status by MPHB paymentManager
 
                     do_action('mphb_toss_payment_confirmed', $booking, $payment, $result);
-                    wp_safe_redirect($booking->getBookingConfirmationUrl());
+                    $reservationReceivedPageUrl = MPHB()->settings()->pages()->getReservationReceivedPageUrl( $payment );
+                    wp_safe_redirect($reservationReceivedPageUrl);
+                    // wp_safe_redirect($booking->getBookingConfirmationUrl());
                     exit;
                 } else {
                     throw new TossException("Toss API 결과 비정상: " . print_r($result, true));
