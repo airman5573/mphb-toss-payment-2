@@ -141,41 +141,64 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
 
     public function processPayment(Booking $booking, Payment $payment): array
     {
-        $redirectUrl = home_url('/toss-checkout');
         $returnUrl = add_query_arg([
-            'payment_id' => $payment->getId(),
-            'booking_id' => $booking->getId(),
-        ], $redirectUrl);
-
-        function_exists('ray') && ray('returnUrl', $returnUrl);
-
+            'booking_id'  => $booking->getId(),
+            'booking_key' => $booking->getKey(),
+        ], home_url('/toss-checkout'));
         wp_redirect($returnUrl);
         exit;
+        
     }
 
     /**
      * Toss 결제 콜백 ("성공", "실패" 리다이렉트 모두 처리)
+     * - booking_id와 booking_key 모두를 이용.
      */
     public function handleTossCallback()
     {
+        // booking_id + booking_key 쌍 필수
         if (
             !isset($_GET['mphb_payment_gateway']) ||
             $_GET['mphb_payment_gateway'] !== self::GATEWAY_ID ||
-            !isset($_GET['callback_type'], $_GET['booking_id'], $_GET['payment_id'])
+            !isset($_GET['callback_type'], $_GET['booking_id'], $_GET['booking_key'])
         ) {
             return;
         }
 
         $callbackType = sanitize_text_field($_GET['callback_type']);
         $bookingId    = absint($_GET['booking_id']);
-        $paymentId    = absint($_GET['payment_id']);
+        $bookingKey   = sanitize_text_field($_GET['booking_key']);
 
+        // 예약 찾기 및 철저 검증
         $booking = MPHB()->getBookingRepository()->findById($bookingId);
-        $payment = MPHB()->getPaymentRepository()->findById($paymentId);
+        if (
+            !$booking ||
+            !($booking instanceof \MPHB\Entities\Booking) ||
+            $booking->getKey() !== $bookingKey
+        ) {
+            wp_die(
+                __('Toss 콜백: 예약정보 불일치 또는 접근 권한 없음.', 'mphb-toss'),
+                __('예약 오류', 'mphb-toss'),
+                ['response' => 404]
+            );
+        }
 
-        if (!$booking || !$payment || $payment->getBookingId() !== $booking->getId()) {
-            function_exists('ray') && ray('[TossGateway::handleTossCallback] 예약-결제 ID 불일치', $_GET);
-            wp_die(__('Invalid booking/payment relation.', 'mphb-toss'), __('Error', 'mphb-toss'), ['response' => 404]);
+        // 결제 찾기: 예약 엔티티의 getExpectPaymentId()
+        $expectPaymentId = $booking->getExpectPaymentId();
+        if (!$expectPaymentId) {
+            wp_die(
+                __('Toss 콜백: 이 예약에 진행 중 결제가 존재하지 않습니다.', 'mphb-toss'),
+                __('결제 없음', 'mphb-toss'),
+                ['response' => 404]
+            );
+        }
+        $payment = MPHB()->getPaymentRepository()->findById($expectPaymentId);
+        if (!$payment || $payment->getBookingId() !== $booking->getId()) {
+            wp_die(
+                __('Toss 콜백: 결제-예약 ID 불일치.', 'mphb-toss'),
+                __('잘못된 결제', 'mphb-toss'),
+                ['response' => 404]
+            );
         }
 
         if ($callbackType === 'fail') {
@@ -191,15 +214,24 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         }
 
         // 성공 콜백
-        if ($callbackType === 'success' && isset($_GET['paymentKey'], $_GET['orderId'], $_GET['amount'])) {
-            $paymentKey    = sanitize_text_field($_GET['paymentKey']);
-            $tossOrderId   = sanitize_text_field($_GET['orderId']);
-            $receivedAmt   = round(floatval($_GET['amount']));
-            $expectedAmt   = round(floatval($payment->getAmount()));
-            $expectedOrderId = sprintf('mphb_%d_%d', $bookingId, $paymentId);
+        if (
+            $callbackType === 'success'
+            && isset($_GET['paymentKey'], $_GET['orderId'], $_GET['amount'])
+        ) {
+            $paymentKey  = sanitize_text_field($_GET['paymentKey']);
+            $tossOrderId = sanitize_text_field($_GET['orderId']);
+            $receivedAmt = round(floatval($_GET['amount']));
+            $expectedAmt = round(floatval($payment->getAmount()));
+
+            // orderId는 반드시 [mphb_{booking_id}_{payment_id}] 포맷이어야 함
+            $expectedOrderId = sprintf('mphb_%d_%d', $booking->getId(), $payment->getId());
 
             if ($receivedAmt !== $expectedAmt || $tossOrderId !== $expectedOrderId) {
-                wp_die(__('Toss 결제 정보 불일치(금액 또는 주문ID)', 'mphb-toss'), __('Payment Error', 'mphb-toss'), ['response' => 400]);
+                wp_die(
+                    __('Toss 결제 정보 불일치(금액 또는 주문ID)', 'mphb-toss'),
+                    __('Payment Error', 'mphb-toss'),
+                    ['response' => 400]
+                );
             }
             try {
                 $tossApi = new TossAPI($this->getSecretKey(), true);
@@ -212,15 +244,14 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
                     MPHB()->paymentManager()->completePayment($payment, $note);
                     $booking->addLog($note);
 
-                    // Don't call $booking->confirm(), not supported! Only manage status by MPHB paymentManager
-
                     do_action('mphb_toss_payment_confirmed', $booking, $payment, $result);
-                    $reservationReceivedPageUrl = MPHB()->settings()->pages()->getReservationReceivedPageUrl( $payment );
+
+                    $reservationReceivedPageUrl = MPHB()->settings()->pages()->getReservationReceivedPageUrl($payment);
+                    
                     wp_safe_redirect($reservationReceivedPageUrl);
-                    // wp_safe_redirect($booking->getBookingConfirmationUrl());
                     exit;
                 } else {
-                    throw new TossException("Toss API 결과 비정상: " . print_r($result, true));
+                    throw new TossException("Toss API 승인 결과 오류: " . print_r($result, true));
                 }
             } catch (\Exception $e) {
                 $errMsg = $e->getMessage();
@@ -235,6 +266,7 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
             }
         }
     }
+
 
     protected function getFailureRedirectUrl(?Booking $booking, string $reason): string
     {
