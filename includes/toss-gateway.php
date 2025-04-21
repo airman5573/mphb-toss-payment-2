@@ -236,13 +236,19 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
             try {
                 $tossApi = new TossAPI($this->getSecretKey(), true);
                 $result = $tossApi->confirmPayment($paymentKey, $tossOrderId, (float)$expectedAmt);
-                function_exists('ray') && ray('[TossGateway] > [handleTossCallback] comfirm result', $result);
+                function_exists('ray') && ray('[TossGateway] > [handleTossCallback] confirm result', $result);
                 
 
                 if ($result && isset($result->status) && $result->status === 'DONE') {
                     $payment->setTransactionId($paymentKey);
                     $note = sprintf(__('Toss 결제 승인 성공. 결제키:%s', 'mphb-toss'), $paymentKey);
                     $paymentType = $result->method ?? '토스 페이먼츠';
+                    if ($paymentType === '카드') {
+                        $card = $result->card;
+                        if (!empty($card)) {
+                            $paymentType = $card->cardType . '카드';
+                        }
+                    }
 
                     MPHB()->paymentManager()->completePayment($payment, $note);
                     $booking->addLog($note);
