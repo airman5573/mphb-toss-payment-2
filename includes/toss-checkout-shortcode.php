@@ -152,19 +152,18 @@ function mphbTossCheckoutShortcode() {
             }
             /* === Base Styles (Apply within the checkout form context if needed) === */
             .mphb_sc_checkout-form {
-            font-family: "Pretendard", Sans-serif;
-            font-size: 18px; /* Adjust base font size if needed */
-            font-weight: 300;
-            line-height: 1.5; /* Consistent line height */
-            color: rgb(134, 142, 150);
+                font-family: "Pretendard", Sans-serif;
+                font-size: 18px; /* Adjust base font size if needed */
+                font-weight: 300;
+                line-height: 1.5; /* Consistent line height */
+                color: rgb(134, 142, 150);
 
-            min-height: 60vh;
-            display: flex
-        ;
-            flex-direction: column;
-            justify-content: center;
-            max-width: 900px;
-                    margin: 0 auto;
+                min-height: 60vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                max-width: 900px;
+                margin: 0 auto;
             }
 
             .mphb_sc_checkout-form * {
@@ -172,38 +171,38 @@ function mphbTossCheckoutShortcode() {
             }
 
             .mphb_sc_checkout-form * {
-            box-sizing: border-box;
+                box-sizing: border-box;
             }
 
             .mphb_sc_checkout-form h3 {
-            margin-block-start: 0.5rem; 
-            margin-block-end: 1rem; 
-            font-weight: 700; /* Use bold for titles */
-            line-height: 1.2; 
-            font-size: 1.625rem; /* Match confirmation title size */
-            margin-bottom: .91em; /* Match confirmation title bottom margin */
+                margin-block-start: 0.5rem; 
+                margin-block-end: 1rem; 
+                font-weight: 700; /* Use bold for titles */
+                line-height: 1.2; 
+                font-size: 1.625rem; /* Match confirmation title size */
+                margin-bottom: .91em; /* Match confirmation title bottom margin */
             }
 
             .mphb_sc_checkout-form p {
-            margin-block-start: 0; 
-            margin-block-end: 0.9rem;
-            font-weight: normal; /* Regular weight for paragraphs */
-            margin: 0 0 1em 0; /* Standard paragraph margin */
+                margin-block-start: 0; 
+                margin-block-end: 0.9rem;
+                font-weight: normal; /* Regular weight for paragraphs */
+                margin: 0 0 1em 0; /* Standard paragraph margin */
             }
 
             .mphb_sc_checkout-form ul {
-            list-style: none; 
-            margin: 0; 
-            padding: 0;
+                list-style: none; 
+                margin: 0; 
+                padding: 0;
             }
 
             .mphb_sc_checkout-form li {
-            margin-block-start: 0; 
-            margin-block-end: 0; 
+                margin-block-start: 0; 
+                margin-block-end: 0; 
             }
 
             .mphb_sc_checkout-form a {
-            text-decoration: none;
+                text-decoration: none;
             }
 
             .mphb_sc_checkout-form a:hover,
@@ -216,7 +215,7 @@ function mphbTossCheckoutShortcode() {
             /* Spacing between sections */
             .mphb_sc_checkout-form > .mphb-checkout-section:not(:first-of-type),
             .mphb_sc_checkout-form > .mphb-booking-details-section + .mphb-checkout-payment-section {
-            margin-top: 2em; /* Use the confirmation section spacing */
+                margin-top: 2em; /* Use the confirmation section spacing */
             }
 
             /* Booking Details Section */
@@ -228,83 +227,83 @@ function mphbTossCheckoutShortcode() {
             /* Details Title */
             .mphb_sc_checkout-form .mphb-booking-details-title,
             .mphb_sc_checkout-form .mphb-gateway-chooser-title {
-            /* Styles inherited from h3 */
+                /* Styles inherited from h3 */
             }
 
             /* Details List (ul) - Flexbox Layout */
             .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-wrap: wrap;
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-wrap: wrap;
             }
 
             /* List Item (li) */
             .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li {
-            flex: 1 0 100%; /* Mobile: one item per line */
-            padding-left: 0;
-            margin: 0 0 0.5em 0; /* Vertical margin between items */
+                flex: 1 0 100%; /* Mobile: one item per line */
+                padding-left: 0;
+                margin: 0 0 0.5em 0; /* Vertical margin between items */
             }
 
             /* Desktop & larger screens (>= 768px) */
             @media screen and (min-width: 768px) {
-            .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li {
-                flex: 1 0 auto; /* Allow items to sit side-by-side */
-                margin: 0 1.5em 1.5em 0; /* Right and bottom margin */
-                padding-right: 1.5em; /* Space before the border */
-                border-right: 1px dashed #d3ced2; /* Dashed divider */
-            }
+                .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li {
+                    flex: 1 0 auto; /* Allow items to sit side-by-side */
+                    margin: 0 1.5em 1.5em 0; /* Right and bottom margin */
+                    padding-right: 1.5em; /* Space before the border */
+                    border-right: 1px dashed #d3ced2; /* Dashed divider */
+                }
             }
 
             /* Last List Item - remove border and margin */
             .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li:last-of-type {
-            border-right: none;
-            margin-right: 0;
-            padding-right: 0;
+                border-right: none;
+                margin-right: 0;
+                padding-right: 0;
             }
 
             /* Label Styling */
             .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li span.label {
-            /* Inherits base text color (#868E96) and font-weight (300) */
+                /* Inherits base text color (#868E96) and font-weight (300) */
             }
 
             /* Desktop & larger screens (>= 768px) - Label becomes a block */
             @media screen and (min-width: 768px) {
-            .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li span.label {
-                display: block;
-                font-size: 0.85em; /* Smaller font size for label */
-                margin-bottom: 0.2em; /* Space below label */
-            }
+                .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li span.label {
+                    display: block;
+                    font-size: 0.85em; /* Smaller font size for label */
+                    margin-bottom: 0.2em; /* Space below label */
+                }
             }
 
             /* Value Styling */
             .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li span.value {
-            font-weight: bold; /* Bold value */
+                font-weight: bold; /* Bold value */
             }
 
             /* Price specific styling inside value */
             .mphb_sc_checkout-form .mphb-price {
-            /* Styles for price wrapper if any */
+                /* Styles for price wrapper if any */
             }
             .mphb_sc_checkout-form .mphb-currency {
-            /* Styles for currency symbol if any */
+                /* Styles for currency symbol if any */
             }
 
             /* Accommodations Section Styling */
             .mphb_sc_checkout-form .mphb-booking-details-section .accommodations {
-            margin-top: 1em; /* Space above accommodations details */
-            clear: both; /* Ensure it clears floated elements if any */
+                margin-top: 1em; /* Space above accommodations details */
+                clear: both; /* Ensure it clears floated elements if any */
             }
 
             .mphb_sc_checkout-form .mphb-booking-details-section .accommodations-title {
-            display: block;
-            font-weight: 500; /* Semi-bold for this title */
-            margin-bottom: 0.3em;
+                display: block;
+                font-weight: 500; /* Semi-bold for this title */
+                margin-bottom: 0.3em;
             }
 
             .mphb_sc_checkout-form .mphb-booking-details-section .accommodations-list {
-            display: block;
+                display: block;
             }
 
             .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details li {
@@ -313,7 +312,7 @@ function mphbTossCheckoutShortcode() {
 
             /* Payment Section Specifics */
             .mphb_sc_checkout-form .mphb-checkout-payment-section {
-            /* Add specific padding/background if different from booking section */
+                /* Add specific padding/background if different from booking section */
             }
 
             .mphb_sc_checkout-form .mphb-checkout-payment-section .mphb-gateway-description {
@@ -358,7 +357,7 @@ function mphbTossCheckoutShortcode() {
             /* Hide unnecessary elements from original checkout form structure if they exist */
             .mphb_sc_checkout-form .mphb-billing-fields,
             .mphb_sc_checkout-form .mphb-terms-and-conditions {
-            /* display: none; /* Uncomment if these specific containers are not needed */
+                /* display: none; /* Uncomment if these specific containers are not needed */
             }
         </style>
 
@@ -388,12 +387,12 @@ function mphbTossCheckoutShortcode() {
                     </li>
                 </ul>
                 <?php if (!empty($accommodations)) : ?>
-                <div class="accommodations">
-                    <span class="accommodations-title"><?php esc_html_e('세부 정보:', 'mphb-toss-payments'); ?></span>
-                    <span class="accommodations-list">
-                        <?php echo $accommodations; ?>
-                    </span>
-                </div>
+                    <div class="accommodations">
+                        <span class="accommodations-title"><?php esc_html_e('세부 정보:', 'mphb-toss-payments'); ?></span>
+                        <span class="accommodations-list">
+                            <?php echo $accommodations; ?>
+                        </span>
+                    </div>
                 <?php endif; ?>
             </div>
 
@@ -422,69 +421,69 @@ function mphbTossCheckoutShortcode() {
 
         <script src="https://js.tosspayments.com/v2/standard"></script>
         <script>
-        jQuery(function ($) {
-            const payButton = $('#mphb-toss-pay-btn');
-            const messageArea = $('#toss-payment-message');
-            let isProcessing = false;
+            jQuery(function ($) {
+                const payButton = $('#mphb-toss-pay-btn');
+                const messageArea = $('#toss-payment-message');
+                let isProcessing = false;
 
-            if (typeof TossPayments !== 'function') {
-                messageArea.text('<?php echo esc_js(__('토스페이먼츠 JS 로딩 실패, 새로고침 해주세요.', 'mphb-toss-payments')); ?>').css('color','red');
-                payButton.prop('disabled', true);
-                return;
-            }
+                if (typeof TossPayments !== 'function') {
+                    messageArea.text('<?php echo esc_js(__('토스페이먼츠 JS 로딩 실패, 새로고침 해주세요.', 'mphb-toss-payments')); ?>').css('color','red');
+                    payButton.prop('disabled', true);
+                    return;
+                }
 
-            const params = <?php echo wp_json_encode($payment_params); ?>;
-            if (!params || !params.client_key) {
-                messageArea.text('<?php echo esc_js(__('결제 설정 오류입니다.', 'mphb-toss-payments')); ?>').css('color','red');
-                payButton.prop('disabled', true);
-                return;
-            }
+                const params = <?php echo wp_json_encode($payment_params); ?>;
+                if (!params || !params.client_key) {
+                    messageArea.text('<?php echo esc_js(__('결제 설정 오류입니다.', 'mphb-toss-payments')); ?>').css('color','red');
+                    payButton.prop('disabled', true);
+                    return;
+                }
 
-            const toss = TossPayments(params.client_key);
-            const payment = toss.payment({ customerKey: params.customer_key });
+                const toss = TossPayments(params.client_key);
+                const payment = toss.payment({ customerKey: params.customer_key });
 
-            function openTossPayment() {
-                if (isProcessing) return;
-                isProcessing = true;
-                payButton.prop('disabled', true).text('<?php echo esc_js(__('결제 진행 중...', 'mphb-toss-payments')); ?>');
-                messageArea.text('<?php echo esc_js(__('결제창을 여는 중입니다...', 'mphb-toss-payments')); ?>');
+                function openTossPayment() {
+                    if (isProcessing) return;
+                    isProcessing = true;
+                    payButton.prop('disabled', true).text('<?php echo esc_js(__('결제 진행 중...', 'mphb-toss-payments')); ?>');
+                    messageArea.text('<?php echo esc_js(__('결제창을 여는 중입니다...', 'mphb-toss-payments')); ?>');
 
-                payment.requestPayment({
-                    method: "CARD",
-                    amount: { currency: "KRW", value: params.amount },
-                    orderId: params.order_id,
-                    orderName: params.order_name,
-                    successUrl: params.success_url,
-                    failUrl: params.fail_url,
-                    customerEmail: params.customer_email,
-                    customerName: params.customer_name,
-                    card: {
-                        useEscrow: false,
-                        flowMode: "DEFAULT",
-                        useCardPoint: false,
-                        useAppCardOnly: false,
-                    }
-                }).catch(function(error) {
-                    const msg = (error && error.message)
-                        ? error.message
-                        : '<?php echo esc_js(__('결제가 취소되었거나 오류가 발생했습니다. 다시 시도해 주세요.', 'mphb-toss-payments')); ?>';
-                    messageArea.text(msg).css('color','red');
-                }).finally(function() {
-                    isProcessing = false;
-                    payButton.prop('disabled', false).text('<?php echo esc_js(__('결제하기', 'mphb-toss-payments')); ?>');
+                    payment.requestPayment({
+                        method: "CARD",
+                        amount: { currency: "KRW", value: params.amount },
+                        orderId: params.order_id,
+                        orderName: params.order_name,
+                        successUrl: params.success_url,
+                        failUrl: params.fail_url,
+                        customerEmail: params.customer_email,
+                        customerName: params.customer_name,
+                        card: {
+                            useEscrow: false,
+                            flowMode: "DEFAULT",
+                            useCardPoint: false,
+                            useAppCardOnly: false,
+                        }
+                    }).catch(function(error) {
+                        const msg = (error && error.message)
+                            ? error.message
+                            : '<?php echo esc_js(__('결제가 취소되었거나 오류가 발생했습니다. 다시 시도해 주세요.', 'mphb-toss-payments')); ?>';
+                        messageArea.text(msg).css('color','red');
+                    }).finally(function() {
+                        isProcessing = false;
+                        payButton.prop('disabled', false).text('<?php echo esc_js(__('결제하기', 'mphb-toss-payments')); ?>');
+                    });
+                }
+
+                const autoOpenTimeout = setTimeout(function() {
+                    if (!isProcessing) openTossPayment();
+                }, 850);
+
+                payButton.on('click', function(e) {
+                    e.preventDefault();
+                    clearTimeout(autoOpenTimeout);
+                    openTossPayment();
                 });
-            }
-
-            const autoOpenTimeout = setTimeout(function() {
-                if (!isProcessing) openTossPayment();
-            }, 850);
-
-            payButton.on('click', function(e) {
-                e.preventDefault();
-                clearTimeout(autoOpenTimeout);
-                openTossPayment();
             });
-        });
         </script>
         <?php
     } catch (Exception $e) {
