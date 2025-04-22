@@ -271,8 +271,13 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
 
                 do_action('mphb_toss_payment_failed', $booking, $payment, null);
 
-                $failUrl = $this->getFailureRedirectUrl($booking, $errMsg);
-                wp_safe_redirect($failUrl);
+                // $failUrl = $this->getFailureRedirectUrl($booking, $errMsg);
+                // wp_safe_redirect($failUrl);
+                $returnUrl = add_query_arg([
+                    'booking_id'  => $booking->getId(),
+                    'booking_key' => $booking->getKey(),
+                ], home_url('/toss-checkout'));
+                wp_safe_redirect($returnUrl);
                 exit;
             }
         }
@@ -290,6 +295,7 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
             $url = home_url('/');
         }
         return add_query_arg([
+            'booking_key'         => $booking ? $booking->getKey() : '',
             'mphb_payment_status' => 'failed',
             'mphb_gateway'        => $this->getId(),
             'reason'              => urlencode($reason),
