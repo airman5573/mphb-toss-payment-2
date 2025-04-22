@@ -207,16 +207,15 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
             $booking->addLog('Toss 실패 콜백: ' . $failLog);
 
             do_action('mphb_toss_payment_failed', $booking, $payment, null);
-
+ 
             $returnUrl = add_query_arg([
                 'booking_id'  => $booking->getId(),
                 'booking_key' => $booking->getKey(),
-                'fail_log' => urlencode($failLog),
+                'code'        => $_GET['code'],
+                'message'     => $_GET['message'],
             ], home_url('/toss-checkout'));
             wp_safe_redirect($returnUrl);
 
-            // $failUrl = $this->getFailureRedirectUrl($booking, $failLog);
-            // wp_safe_redirect($failUrl);
             exit;
         }
 

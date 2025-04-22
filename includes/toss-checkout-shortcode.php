@@ -91,6 +91,10 @@ function mphbTossCheckoutShortcode() {
     ob_start();
 
     try {
+        // (추가) code/message 추출
+        $error_code = isset($_GET['code']) ? sanitize_text_field($_GET['code']) : '';
+        $error_message = isset($_GET['message']) ? sanitize_text_field($_GET['message']) : '';
+
         // 1. 매개변수 가져오기 및 유효성 검사
         $booking_id = isset($_GET['booking_id']) ? absint($_GET['booking_id']) : 0;
         $booking_key = isset($_GET['booking_key']) ? sanitize_text_field($_GET['booking_key']) : '';
@@ -414,7 +418,11 @@ function mphbTossCheckoutShortcode() {
                     <button type="button" id="mphb-toss-pay-btn" class="button mphb-button mphb-confirm-reservation">
                         <?php echo esc_html__('결제하기', 'mphb-toss-payments'); ?>
                     </button>
-                    <p id="toss-payment-message" class="mphb-error"></p>
+                    <p id="toss-payment-message" class="mphb-error"><?php
+                        if ($error_code && $error_message) {
+                            echo esc_html($error_message);
+                        }
+                    ?></p>
                 </div>
             </div>
         </div>
@@ -425,6 +433,9 @@ function mphbTossCheckoutShortcode() {
                 const payButton = $('#mphb-toss-pay-btn');
                 const messageArea = $('#toss-payment-message');
                 let isProcessing = false;
+
+                // (추가) PHP입니다: code가 있으면 에러임
+                var isError = <?php echo json_encode((bool)$error_code); ?>; // true/false
 
                 if (typeof TossPayments !== 'function') {
                     messageArea.text('<?php echo esc_js(__('토스페이먼츠 JS 로딩 실패, 새로고침 해주세요.', 'mphb-toss-payments')); ?>').css('color','red');
@@ -474,13 +485,19 @@ function mphbTossCheckoutShortcode() {
                     });
                 }
 
-                const autoOpenTimeout = setTimeout(function() {
-                    if (!isProcessing) openTossPayment();
-                }, 850);
+                // (변경) 자동 오픈 없음: 에러가 아니면 버튼만 활성화, 에러면 결제 버튼 비활성화 (또는  
+                // 메세지 보여주고 버튼 동작만 막음)
+                // if(isError){
+                //     payButton.prop('disabled', true);
+                // }else{
+                //     payButton.prop('disabled', false);
+                // }
+
+                payButton.prop('disabled', false); // 항상 활성!
 
                 payButton.on('click', function(e) {
                     e.preventDefault();
-                    clearTimeout(autoOpenTimeout);
+                    // 에러가 있을 때도 무조건 재시도 허용
                     openTossPayment();
                 });
             });
