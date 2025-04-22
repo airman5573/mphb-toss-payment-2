@@ -41,7 +41,7 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
             Fields\FieldFactory::create("mphb_payment_gateway_{$gatewayId}_description", [
                 'type'         => 'textarea',
                 'label'        => __('Description', 'motopress-hotel-booking'),
-                'default'      => __('Pay with Toss Payments.', 'motopress-hotel-booking'),
+                'default'      => __('', 'motopress-hotel-booking'),
                 'translatable' => true,
             ]),
         ];
