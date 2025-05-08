@@ -20,13 +20,21 @@ define('MPHB_TOSS_PAYMENTS_PLUGIN_FILE', __FILE__);
 
 // Include core files
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-exception.php';
+require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-settings-tab.php'; // 새로 추가한 파일
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-gateway.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-api.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-checkout-shortcode.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-refund.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/functions.php';
 
+
 // Register Toss Payments Gateway with MPHB
 add_action('plugins_loaded', function () {
     new \MPHBTOSS\TossGateway();
+
+    // 2. Toss Payments 전역 설정 탭 초기화
+    if ( class_exists('\MPHBTOSS\TossGlobalSettingsTab') ) {
+        $toss_settings_tab = new \MPHBTOSS\TossGlobalSettingsTab();
+        $toss_settings_tab->init();
+    }
 }, 9);

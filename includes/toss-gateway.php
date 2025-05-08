@@ -54,29 +54,6 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         $mainGroup->addFields($mainGroupFields);
         $subTab->addGroup($mainGroup);
 
-        $apiGroupFields = [
-            Fields\FieldFactory::create("mphb_payment_gateway_{$gatewayId}_client_key", [
-                'type'        => 'text',
-                'label'       => __('Client Key', 'mphb-toss'),
-                'default'     => '',
-                'description' => __('Enter your Toss Payments Client Key.', 'mphb-toss'),
-            ]),
-            Fields\FieldFactory::create("mphb_payment_gateway_{$gatewayId}_secret_key", [
-                'type'        => 'text',
-                'label'       => __('Secret Key', 'mphb-toss'),
-                'default'     => '',
-                'description' => __('Enter your Toss Payments Secret Key.', 'mphb-toss'),
-            ]),
-        ];
-
-        $apiGroup = new Groups\SettingsGroup(
-            "mphb_payments_{$gatewayId}_api",
-            __('API Settings', 'mphb-toss'),
-            $subTab->getOptionGroupName()
-        );
-        $apiGroup->addFields($apiGroupFields);
-        $subTab->addGroup($apiGroup);
-
         if (!MPHB()->isSiteSSL()) {
             $sslWarn = __('<strong>권고:</strong> 사이트에 SSL(https://)을 적용해 주세요. Toss 결제는 SSL 환경에서만 정상적으로 동작합니다.', 'mphb-toss');
             $enableField = $subTab->findField("mphb_payment_gateway_{$gatewayId}_enable");
@@ -101,8 +78,6 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         return array_merge(parent::initDefaultOptions(), [
             'title'       => __('The Toss Payments Credit Card', 'mphb-toss'),
             'description' => __('Pay with your credit card via Toss Payments.', 'mphb-toss'),
-            'client_key'  => '',
-            'secret_key'  => '',
         ]);
     }
 
@@ -110,13 +85,18 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
     {
         parent::setupProperties();
         $this->adminTitle    = __('Toss Payments', 'mphb-toss');
-        $this->clientKey     = $this->getOption('client_key');
-        $this->secretKey     = $this->getOption('secret_key');
     }
 
     public function isActive()
     {
-        return parent::isActive() && !empty($this->getClientKey()) && !empty($this->getSecretKey());
+        $currency = strtoupper(MPHB()->settings()->currency()->getCurrencyCode());
+        $global_client_key = TossGlobalSettingsTab::get_global_client_key();
+        $global_secret_key = TossGlobalSettingsTab::get_global_secret_key();
+
+        return parent::isActive() &&
+            !empty($global_client_key) &&
+            !empty($global_secret_key) &&
+            $currency === 'KRW';
     }
 
     public function isEnabled()
@@ -126,12 +106,12 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
 
     public function getClientKey()
     {
-        return $this->getOption('client_key');
+        return TossGlobalSettingsTab::get_global_client_key();
     }
 
     public function getSecretKey()
     {
-        return $this->getOption('secret_key');
+        return TossGlobalSettingsTab::get_global_secret_key();
     }
 
     public function processPayment(Booking $booking, Payment $payment): array
@@ -142,7 +122,6 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
         ], home_url('/toss-checkout'));
         wp_redirect($returnUrl);
         exit;
-        
     }
 
     /**
