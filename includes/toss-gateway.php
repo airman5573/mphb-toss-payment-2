@@ -116,12 +116,7 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
 
     public function isActive()
     {
-        return true;
-        $currency = strtoupper(MPHB()->settings()->currency()->getCurrencyCode());
-        return parent::isActive() &&
-            !empty($this->getClientKey()) &&
-            !empty($this->getSecretKey()) &&
-            $currency === 'KRW';
+        return parent::isActive() && !empty($this->getClientKey()) && !empty($this->getSecretKey());
     }
 
     public function isEnabled()
