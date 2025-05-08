@@ -89,9 +89,9 @@ function mphb_toss_refund($refundAmount, $paymentId, string $refundLog = ''): ar
         if (empty($refundLog)) {
             $refundLog = sprintf(
                 'Toss 환불 완료 | 환불금액: %s원 | 상태: %s | 토스취소ID: %s',
-                number_format($actualRefundAmount),
+                number_format($refundAmount),
                 $result->status ?? '',
-                $transactionKey
+                $tossPaymentKey
             );
             if (!empty($result->message)) {
                 $refundLog .= ' | 기타: ' . $result->message;
