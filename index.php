@@ -8,11 +8,6 @@ if (!defined('WPINC')) {
     exit;
 }
 
-# 토스페이먼츠 결제 했을때 결제수단 나오도록
-# toss-checkout에서 예약 정보 보여주기 + 결제창 먼저 띄우고 취소해도 다시 버튼 누르면 결제할 수 있도록
-# 환불해주는 함수 만들기
-# booking id와 payment id 둘다 넣지 말고 booking_id & booking_key 이렇게 2개만 쓰자
-
 define('MPHB_TOSS_PAYMENTS_VERSION', '1.0.0');
 define('MPHB_TOSS_PAYMENTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MPHB_TOSS_PAYMENTS_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -20,21 +15,42 @@ define('MPHB_TOSS_PAYMENTS_PLUGIN_FILE', __FILE__);
 
 // Include core files
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-exception.php';
-require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-settings-tab.php'; // 새로 추가한 파일
-require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-gateway.php';
+require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-settings-tab.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-api.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-checkout-shortcode.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-refund.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/functions.php';
 
+// Include gateway classes
+require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/gateways/class-mphb-toss-gateway-base.php';
+require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/gateways/class-mphb-toss-gateway-card.php';
+require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/gateways/class-mphb-toss-gateway-bank.php';
+require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/gateways/class-mphb-toss-gateway-vbank.php';
+// 만약 더 많은 결제 수단을 추가한다면 여기에 require_once를 추가합니다. (예: 휴대폰, 간편결제 등)
 
-// Register Toss Payments Gateway with MPHB
 add_action('plugins_loaded', function () {
-    new \MPHBTOSS\TossGateway();
-
-    // 2. Toss Payments 전역 설정 탭 초기화
-    if ( class_exists('\MPHBTOSS\TossGlobalSettingsTab') ) {
+    // 1. Initialize Toss Payments Global Settings Tab
+    if (class_exists('\MPHBTOSS\TossGlobalSettingsTab')) {
         $toss_settings_tab = new \MPHBTOSS\TossGlobalSettingsTab();
         $toss_settings_tab->init();
     }
+
+    // 2. Register Individual Toss Payment Gateway Methods
+    if (class_exists('\MPHBTOSS\Gateways\TossGatewayCard')) {
+        new \MPHBTOSS\Gateways\TossGatewayCard();
+    }
+    if (class_exists('\MPHBTOSS\Gateways\TossGatewayBank')) {
+        new \MPHBTOSS\Gateways\TossGatewayBank();
+    }
+    if (class_exists('\MPHBTOSS\Gateways\TossGatewayVbank')) {
+        new \MPHBTOSS\Gateways\TossGatewayVbank();
+    }
+    // 여기에 다른 게이트웨이 인스턴스 생성 코드를 추가합니다.
+
+    // 3. Register common callback handler (only once)
+    // Make sure TossGatewayBase is loaded before this action.
+    if (class_exists('\MPHBTOSS\Gateways\TossGatewayBase')) {
+        add_action('init', ['\MPHBTOSS\Gateways\TossGatewayBase', 'handleTossCallbackStatic'], 11);
+    }
+
 }, 9);

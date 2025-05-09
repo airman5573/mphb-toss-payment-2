@@ -44,16 +44,20 @@ function mphb_create_toss_payment_parameters($bookingEntity, $paymentEntity, $ga
     $tossCustomerKey = mphbTossSanitizeCustomerKey($tossCustomerKey);
     $productName = $gatewayEntity->generateItemName($bookingEntity);
     $orderId = sprintf('mphb_%d_%d', $bookingEntity->getId(), $paymentEntity->getId());
+
     return [
         'client_key'     => $gatewayEntity->getClientKey(),
-        'customer_key'   => $tossCustomerKey,
-        'amount'         => (float)$bookingEntity->getTotalPrice(),
+        'customer_key'   => $tossCustomerKey, // mphbTossSanitizeCustomerKey 처리된 값
+        'amount'         => (float)$paymentEntity->getAmount(), // 결제 엔티티의 금액 사용
         'order_id'       => $orderId,
         'order_name'     => $productName,
         'customer_email' => $customerEmail,
         'customer_name'  => $customerName,
-        'success_url'    => mphb_create_toss_callback_url('success', $bookingKey, $bookingId),
-        'fail_url'       => mphb_create_toss_callback_url('fail', $bookingKey, $bookingId),
+        'success_url'    => mphb_create_toss_callback_url('success', $bookingKey, $bookingId, $selectedGatewayId),
+        'fail_url'       => mphb_create_toss_callback_url('fail', $bookingKey, $bookingId, $selectedGatewayId),
+        // 각 게이트웨이별 추가 파라미터가 있다면 여기서 추가 가능
+        // 예: 가상계좌 입금 기한
+        // 'valid_hours' => $gatewayEntity->get_option('vbank_valid_hours', 48) // TossGatewayVbank에 옵션이 있다면
     ];
 }
 
@@ -63,18 +67,19 @@ function mphb_create_toss_payment_parameters($bookingEntity, $paymentEntity, $ga
  * @param string $callbackType 콜백 유형 ('success' 또는 'fail')
  * @param string $bookingKey 예약 고유 키
  * @param int $bookingId 예약 ID
+ * @param string $gatewayId 콜백을 받을 MPHB 게이트웨이 ID (예: "toss_card")
  * @return string 생성된 콜백 URL
  */
-function mphb_create_toss_callback_url($callbackType, $bookingKey, $bookingId) {
-    // 지정된 파라미터로 콜백 URL 생성
+function mphb_create_toss_callback_url($callbackType, $bookingKey, $bookingId, $gatewayId) {
+    // ... (기존 로직과 유사하게, mphb_payment_gateway 값에 $gatewayId 사용) ...
     return add_query_arg(
         [
             'callback_type'        => $callbackType,
-            'mphb_payment_gateway' => 'toss',
+            'mphb_payment_gateway' => $gatewayId, // 수정됨: toss_card, toss_bank 등
             'booking_key'          => $bookingKey,
             'booking_id'           => $bookingId,
         ],
-        home_url()
+        home_url() // 또는 MPHB()->settings()->pages()->getCheckoutPageUrl() 등 적절한 URL
     );
 }
 
@@ -99,9 +104,17 @@ function mphbTossCheckoutShortcode() {
         $booking_id = isset($_GET['booking_id']) ? absint($_GET['booking_id']) : 0;
         $booking_key = isset($_GET['booking_key']) ? sanitize_text_field($_GET['booking_key']) : '';
 
+        $mphb_gateway_method = isset($_GET['mphb_gateway_method']) ? sanitize_text_field(strtoupper($_GET['mphb_gateway_method'])) : '';
+        $mphb_selected_gateway_id = isset($_GET['mphb_selected_gateway_id']) ? sanitize_text_field($_GET['mphb_selected_gateway_id']) : '';
+
         if (!$booking_id || !$booking_key) {
             throw new Exception(__('예약번호 또는 예약고유키 파라미터가 누락되었습니다.', 'mphb-toss-payments'));
         }
+
+        if (empty($mphb_gateway_method) || empty($mphb_selected_gateway_id)) {
+            throw new Exception(__('필수 결제 수단 정보가 누락되었습니다.', 'mphb-toss-payments'));
+        }
+        
 
         // 2. 예약 데이터 로드 및 소유권 검증
         $booking_repo = MPHB()->getBookingRepository();
@@ -145,8 +158,8 @@ function mphbTossCheckoutShortcode() {
             }
         }
 
-        // 5. 결제 위젯 파라미터
-        $payment_params = mphb_create_toss_payment_parameters($booking, $payment_entity, $toss_gateway, $booking_key, $booking_id);
+
+        $payment_params = mphb_create_toss_payment_parameters($booking, $payment_entity, $toss_gateway_object, $booking_key, $booking_id, $mphb_selected_gateway_id);
 
         ?>
         <style>
@@ -427,79 +440,90 @@ function mphbTossCheckoutShortcode() {
             </div>
         </div>
 
-        <script src="https://js.tosspayments.com/v2/standard"></script>
+        <script src="https://js.tosspayments.com/v2/standard"></script> <!-- 토스페이먼츠 JS SDK V2 Standard -->
+        
         <script>
             jQuery(function ($) {
                 const payButton = $('#mphb-toss-pay-btn');
                 const messageArea = $('#toss-payment-message');
                 let isProcessing = false;
-
-                // (추가) PHP입니다: code가 있으면 에러임
-                var isError = <?php echo json_encode((bool)$error_code); ?>; // true/false
+                var isError = <?php echo json_encode(!empty($error_code)); ?>;
 
                 if (typeof TossPayments !== 'function') {
-                    messageArea.text('<?php echo esc_js(__('토스페이먼츠 JS 로딩 실패, 새로고침 해주세요.', 'mphb-toss-payments')); ?>').css('color','red');
+                    messageArea.text('<?php echo esc_js(__('TossPayments JS SDK 로딩 실패. 페이지를 새로고침 해주세요.', 'mphb-toss-payments')); ?>').addClass('mphb-error');
                     payButton.prop('disabled', true);
                     return;
                 }
 
-                const params = <?php echo wp_json_encode($payment_params); ?>;
-                if (!params || !params.client_key) {
-                    messageArea.text('<?php echo esc_js(__('결제 설정 오류입니다.', 'mphb-toss-payments')); ?>').css('color','red');
+                const paymentParams = <?php echo wp_json_encode($payment_params); ?>;
+                if (!paymentParams || !paymentParams.client_key) {
+                    messageArea.text('<?php echo esc_js(__('결제 설정에 오류가 있습니다. 관리자에게 문의하세요.', 'mphb-toss-payments')); ?>').addClass('mphb-error');
                     payButton.prop('disabled', true);
                     return;
                 }
+                
+                // 전달된 게이트웨이 메소드 (PHP에서 이미 대문자 처리됨)
+                const tossMethod = "<?php echo esc_js($mphb_gateway_method); ?>";
+                const toss = TossPayments(paymentParams.client_key);
+                const paymentWidget = toss.payment({ customerKey: paymentParams.customer_key });
 
-                const toss = TossPayments(params.client_key);
-                const payment = toss.payment({ customerKey: params.customer_key });
-
-                function openTossPayment() {
+                function requestTossPayment() {
                     if (isProcessing) return;
                     isProcessing = true;
                     payButton.prop('disabled', true).text('<?php echo esc_js(__('결제 진행 중...', 'mphb-toss-payments')); ?>');
-                    messageArea.text('<?php echo esc_js(__('결제창을 여는 중입니다...', 'mphb-toss-payments')); ?>');
+                    messageArea.text('').removeClass('mphb-error'); // 이전 에러 메시지 초기화
 
-                    payment.requestPayment({
-                        method: "CARD",
-                        amount: { currency: "KRW", value: params.amount },
-                        orderId: params.order_id,
-                        orderName: params.order_name,
-                        successUrl: params.success_url,
-                        failUrl: params.fail_url,
-                        customerEmail: params.customer_email,
-                        customerName: params.customer_name,
-                        card: {
+                    let paymentData = {
+                        amount: { currency: "KRW", value: paymentParams.amount },
+                        orderId: paymentParams.order_id,
+                        orderName: paymentParams.order_name,
+                        successUrl: paymentParams.success_url,
+                        failUrl: paymentParams.fail_url,
+                        customerEmail: paymentParams.customer_email,
+                        customerName: paymentParams.customer_name,
+                        // 기타 공통 파라미터
+                    };
+
+                    // 결제 수단별 특화된 파라미터 추가 (필요시)
+                    // 예시: 카드 결제 기본 옵션
+                    if (tossMethod === "CARD") {
+                        paymentData.card = {
                             useEscrow: false,
-                            flowMode: "DEFAULT",
+                            flowMode: "DEFAULT", // 또는 "DIRECT" (카드 정보 직접 입력 UI 제공 시)
                             useCardPoint: false,
                             useAppCardOnly: false,
-                        }
-                    }).catch(function(error) {
-                        const msg = (error && error.message)
-                            ? error.message
-                            : '<?php echo esc_js(__('결제가 취소되었거나 오류가 발생했습니다. 다시 시도해 주세요.', 'mphb-toss-payments')); ?>';
-                        messageArea.text(msg).css('color','red');
-                    }).finally(function() {
-                        isProcessing = false;
-                        payButton.prop('disabled', false).text('<?php echo esc_js(__('결제하기', 'mphb-toss-payments')); ?>');
-                    });
+                        };
+                    }
+                    // 예시: 가상계좌 관련 옵션 (만약 설정에서 가져온다면)
+                    // if (tossMethod === "VIRTUAL_ACCOUNT" && paymentParams.valid_hours) {
+                    //     paymentData.virtualAccount = {
+                    //         validHours: paymentParams.valid_hours,
+                    //         cashReceipt: { type: "미발행" }, // 현금영수증 옵션
+                    //         useEscrow: false
+                    //     };
+                    // }
+
+                    paymentWidget.requestPayment({ method: tossMethod, ...paymentData })
+                        .catch(function(error) {
+                            console.error("Toss Payments Error: ", error);
+                            const msg = (error && error.message) ? error.message : '<?php echo esc_js(__('결제가 취소되었거나 오류가 발생했습니다. 다시 시도해 주세요.', 'mphb-toss-payments')); ?>';
+                            messageArea.text(msg).addClass('mphb-error');
+                        })
+                        .finally(function() {
+                            isProcessing = false;
+                            payButton.prop('disabled', false).text('<?php echo esc_js(__('결제하기', 'mphb-toss-payments')); ?>');
+                        });
                 }
-
-                // (변경) 자동 오픈 없음: 에러가 아니면 버튼만 활성화, 에러면 결제 버튼 비활성화 (또는  
-                // 메세지 보여주고 버튼 동작만 막음)
-                // if(isError){
-                //     payButton.prop('disabled', true);
-                // }else{
-                //     payButton.prop('disabled', false);
-                // }
-
-                payButton.prop('disabled', false); // 항상 활성!
+                
+                payButton.prop('disabled', false); // 버튼은 항상 활성화
 
                 payButton.on('click', function(e) {
                     e.preventDefault();
-                    // 에러가 있을 때도 무조건 재시도 허용
-                    openTossPayment();
+                    requestTossPayment();
                 });
+
+                // 페이지 로드 시 에러가 없으면 자동으로 결제창을 띄우지 않고 버튼 클릭을 기다립니다.
+                // (요청하신 "결제창 먼저 띄우고 취소해도 다시 버튼 누르면 결제할 수 있도록" 부분 반영)
             });
         </script>
         <?php

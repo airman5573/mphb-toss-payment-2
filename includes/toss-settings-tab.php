@@ -1,17 +1,18 @@
 <?php
 namespace MPHBTOSS;
 
-// ... (use 구문들) ...
-use MPHB\Admin\Fields\InputField; // InputField를 사용하기 위해 추가
-use MPHB\Admin\Tabs\SettingsTab; // 명시적으로 SettingsTab 사용
-use MPHB\Admin\Groups\SettingsGroup; // 명시적으로 SettingsGroup 사용
-use MPHB\Admin\Fields\FieldFactory; // 명시적으로 FieldFactory 사용
+use MPHB\Admin\Fields\InputField;
+use MPHB\Admin\Tabs\SettingsTab;
+use MPHB\Admin\Groups\SettingsGroup;
+use MPHB\Admin\Fields\FieldFactory;
 
 class TossGlobalSettingsTab {
 
     const TAB_ID = 'toss_api_keys';
-    const OPTION_CLIENT_KEY = 'mphb_toss_global_client_key';
-    const OPTION_SECRET_KEY = 'mphb_toss_global_secret_key';
+    const OPTION_CLIENT_KEY   = 'mphb_toss_global_client_key';
+    const OPTION_SECRET_KEY   = 'mphb_toss_global_secret_key';
+    const OPTION_TEST_MODE    = 'mphb_toss_global_test_mode';
+    const OPTION_DEBUG_MODE   = 'mphb_toss_global_debug_mode';
 
     public function init() {
         add_filter( 'mphb_generate_settings_tabs', [ $this, 'add_tab_slug' ] );
@@ -35,76 +36,80 @@ class TossGlobalSettingsTab {
             return $tab_object;
         }
 
-        if ( ! class_exists( '\MPHB\Admin\Tabs\SettingsTab' ) ||
-             ! class_exists( '\MPHB\Admin\Groups\SettingsGroup' ) ||
-             ! class_exists( '\MPHB\Admin\Fields\FieldFactory' ) ) {
+        if ( ! class_exists( '\MPHB\Admin\Tabs\SettingsTab' )
+          || ! class_exists( '\MPHB\Admin\Groups\SettingsGroup' )
+          || ! class_exists( '\MPHB\Admin\Fields\FieldFactory' ) ) {
             if ( defined('WP_DEBUG') && WP_DEBUG ) {
                 error_log('[MPHB Toss Payments] MPHB core classes not found for settings tab generation.');
             }
             return null;
         }
 
-        // 1. 탭 객체 생성
+        // 탭 객체 생성
         $tab = new SettingsTab(
             self::TAB_ID,
-            __( '토스페이먼츠 공용키', 'mphb-toss-payments' ),
-            'mphb_settings' // MPHB 설정 페이지의 기본 옵션 그룹 이름
-            // 네 번째 인자는 $subTabName 이므로, 여기서는 설명을 전달하지 않습니다.
+            __( '토스페이먼츠', 'mphb-toss-payments' ),
+            'mphb_settings'
         );
 
-        // 2. 설명용 그룹 추가
-        $description_text = '';
-
+        // 설명 그룹
         $description_group = new SettingsGroup(
-            'mphb_toss_global_api_description_group', // 고유 ID
-            '', // 그룹 제목 없음 (또는 'Information' 등)
+            'mphb_toss_global_api_description_group',
+            '',
             $tab->getOptionGroupName(),
-            $description_text // SettingsGroup 생성자의 네 번째 인자가 설명으로 사용됨
+            '' // 여기에 설명을 넣을 수도 있습니다
         );
-        // API 키 그룹보다 먼저 추가하여 탭 상단에 설명이 표시되도록 합니다.
         $tab->addGroup( $description_group );
 
-        // 3. API 키 설정 그룹 생성
+        // API 키 그룹 생성
         $api_keys_group = new SettingsGroup(
             'mphb_toss_global_api_keys_group',
-            __( '토스페이먼츠 공용 API 키', 'mphb-toss-payments' ),
+            __( '토스페이먼츠 공용 API 키 및 설정', 'mphb-toss-payments' ),
             $tab->getOptionGroupName()
         );
 
-        // 필드 생성 및 추가 로직 (이전과 동일)
+        // 테스트 모드 체크박스
+        $test_mode_field = FieldFactory::create( self::OPTION_TEST_MODE, [
+            'type'        => 'checkbox',
+            'label'       => __( '테스트 모드 (Test Mode)', 'mphb-toss-payments' ),
+            'value'       => '1',
+            'default'     => '0',
+            'description' => __( '테스트 결제를 사용하려면 체크하세요.', 'mphb-toss-payments' ),
+        ] );
         $client_key_field = FieldFactory::create( self::OPTION_CLIENT_KEY, [
             'type'        => 'text',
-            'label'       => __( 'Client Key', 'mphb-toss-payments' ),
+            'label'       => __( '클라이언트 키', 'mphb-toss-payments' ),
             'default'     => 'test_ck_ma60RZblrqo5YwQmZd6z3wzYWBn1',
             'description' => '',
             'size'        => 'regular',
         ] );
-
         $secret_key_field = FieldFactory::create( self::OPTION_SECRET_KEY, [
             'type'        => 'text',
-            'label'       => __( 'Secret Key', 'mphb-toss-payments' ),
+            'label'       => __( '시크릿 키', 'mphb-toss-payments' ),
             'default'     => 'test_sk_6BYq7GWPVv2Ryd2QGEm4VNE5vbo1',
             'description' => '',
             'size'        => 'regular',
         ] );
+        // 디버깅 모드 체크박스
+        $debug_mode_field = FieldFactory::create( self::OPTION_DEBUG_MODE, [
+            'type'        => 'checkbox',
+            'label'       => __( '디버깅 모드 (Debug Mode)', 'mphb-toss-payments' ),
+            'value'       => '1',
+            'default'     => '0',
+            'description' => __( '에러 및 요청 로그를 활성화합니다.', 'mphb-toss-payments' ),
+        ] );
 
+        // 필드 배열
         $fields_to_add = [];
-        if ( $client_key_field instanceof InputField ) {
-            $fields_to_add[] = $client_key_field;
-        } else {
-            if ( defined('WP_DEBUG') && WP_DEBUG ) { error_log('[MPHB Toss Payments] Failed to create Client Key field. Option name: ' . self::OPTION_CLIENT_KEY); }
-        }
-
-        if ( $secret_key_field instanceof InputField ) {
-            $fields_to_add[] = $secret_key_field;
-        } else {
-            if ( defined('WP_DEBUG') && WP_DEBUG ) { error_log('[MPHB Toss Payments] Failed to create Secret Key field. Option name: ' . self::OPTION_SECRET_KEY); }
-        }
+        if ( $client_key_field instanceof InputField ) $fields_to_add[] = $client_key_field;
+        if ( $secret_key_field instanceof InputField ) $fields_to_add[] = $secret_key_field;
+        if ( $test_mode_field instanceof InputField ) $fields_to_add[] = $test_mode_field;
+        if ( $debug_mode_field instanceof InputField ) $fields_to_add[] = $debug_mode_field;
 
         if ( !empty($fields_to_add) ) {
             $api_keys_group->addFields( $fields_to_add );
         }
-        // API 키 그룹을 탭에 추가
+
         $tab->addGroup( $api_keys_group );
 
         return $tab;
@@ -113,8 +118,13 @@ class TossGlobalSettingsTab {
     public static function get_global_client_key(): string {
         return (string) get_option( self::OPTION_CLIENT_KEY, '' );
     }
-
     public static function get_global_secret_key(): string {
         return (string) get_option( self::OPTION_SECRET_KEY, '' );
+    }
+    public static function is_test_mode(): bool {
+        return get_option( self::OPTION_TEST_MODE, '0' ) === '1';
+    }
+    public static function is_debug_mode(): bool {
+        return get_option( self::OPTION_DEBUG_MODE, '0' ) === '1';
     }
 }
