@@ -43,6 +43,7 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
                 'label'        => __('Description', 'motopress-hotel-booking'),
                 'default'      => __('', 'motopress-hotel-booking'),
                 'translatable' => true,
+                'size'         => 'regular'
             ]),
         ];
 
