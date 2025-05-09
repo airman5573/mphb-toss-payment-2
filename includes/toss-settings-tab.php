@@ -53,7 +53,7 @@ class TossGlobalSettingsTab {
         );
 
         // 2. 설명용 그룹 추가
-        $description_text = __( 'Configure the global API keys for Toss Payments here. These keys will be used by all your Toss Payments gateways (e.g., Toss Credit Card, Toss Easy Pay). <br>Activation and specific settings for each Toss gateway method are managed under "Hotel Booking" > "Settings" > "Payment Gateways" tab.', 'mphb-toss-payments' );
+        $description_text = __( '여기서 Toss Payments의 API 키를 설정하세요. 세부 설정은 "호텔 예약" > "설정" > "결제 게이트웨이"에서 할 수 있습니다.', 'mphb-toss-payments' );
 
         $description_group = new SettingsGroup(
             'mphb_toss_global_api_description_group', // 고유 ID
@@ -76,7 +76,7 @@ class TossGlobalSettingsTab {
             'type'        => 'text',
             'label'       => __( 'Client Key', 'mphb-toss-payments' ),
             'default'     => 'test_ck_ma60RZblrqo5YwQmZd6z3wzYWBn1',
-            'description' => __( 'Enter your Toss Payments Client Key. This key will be shared by all your Toss Payments gateways.', 'mphb-toss-payments' ),
+            'description' => __( 'Toss Payments Client Key를 입력하세요. 이 키는 모든 Toss Payments 게이트웨이에서 사용됩니다.', 'mphb-toss-payments' ),
             'size'        => 'regular',
         ] );
 
@@ -84,7 +84,7 @@ class TossGlobalSettingsTab {
             'type'        => 'text',
             'label'       => __( 'Secret Key', 'mphb-toss-payments' ),
             'default'     => 'test_sk_6BYq7GWPVv2Ryd2QGEm4VNE5vbo1',
-            'description' => __( 'Enter your Toss Payments Secret Key. This key will be shared by all your Toss Payments gateways.', 'mphb-toss-payments' ),
+            'description' => __( 'Toss Payments Secret Key를 입력하세요. 이 키는 모든 Toss Payments 게이트웨이에서 사용됩니다.', 'mphb-toss-payments' ),
             'size'        => 'regular',
         ] );
 
@@ -106,8 +106,6 @@ class TossGlobalSettingsTab {
         }
         // API 키 그룹을 탭에 추가
         $tab->addGroup( $api_keys_group );
-
-        // $tab->setDescription(...) // 이 줄은 확실히 제거되어야 합니다.
 
         return $tab;
     }
