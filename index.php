@@ -54,3 +54,8 @@ add_action('plugins_loaded', function () {
     }
 
 }, 9);
+
+
+add_filter('mphb_gateway_has_sandbox', function ($isSandbox, $gatewayId) {
+    return false;
+}, 2, 9999);

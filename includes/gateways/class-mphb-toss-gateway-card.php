@@ -1,6 +1,9 @@
 <?php
 namespace MPHBTOSS\Gateways;
 
+use MPHB\Entities\Payment;
+use MPHB\Entities\Booking;
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -21,7 +24,7 @@ class TossGatewayCard extends TossGatewayBase {
      */
     protected function setupProperties(): void {
         parent::setupProperties(); // 부모 클래스의 setupProperties 호출 (선택적)
-        $this->adminTitle = __('Toss Payments - Credit Card', 'mphb-toss-payments');
+        $this->adminTitle = __('신용카드 (토스페이먼츠)', 'mphb-toss-payments');
         // $this->icon = MPHB_TOSS_PAYMENTS_PLUGIN_URL . 'assets/images/card_icon.png'; // 아이콘 URL (필요시)
     }
 

@@ -1,6 +1,9 @@
 <?php
 namespace MPHBTOSS\Gateways;
 
+use MPHB\Entities\Payment; // 이 줄 추가
+use MPHB\Entities\Booking; // 이 줄 추가
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -13,7 +16,7 @@ class TossGatewayBank extends TossGatewayBase {
 
     protected function setupProperties(): void {
         parent::setupProperties();
-        $this->adminTitle = __('Toss Payments - Bank Transfer', 'mphb-toss-payments');
+        $this->adminTitle = __('실시간 계좌이체 (토스페이먼츠)', 'mphb-toss-payments');
     }
 
     protected function getDefaultTitle(): string {

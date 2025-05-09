@@ -2,6 +2,8 @@
 namespace MPHBTOSS\Gateways;
 
 use MPHB\Admin\Fields\FieldFactory; // 가상계좌 전용 필드 추가 시 사용
+use MPHB\Entities\Payment; // 이 줄 추가
+use MPHB\Entities\Booking; // 이 줄 추가
 
 if (!defined('ABSPATH')) {
     exit;
@@ -15,7 +17,7 @@ class TossGatewayVbank extends TossGatewayBase {
 
     protected function setupProperties(): void {
         parent::setupProperties();
-        $this->adminTitle = __('Toss Payments - Virtual Account', 'mphb-toss-payments');
+        $this->adminTitle = __('가상계좌 (토스페이먼츠)', 'mphb-toss-payments');
     }
 
     protected function getDefaultTitle(): string {
@@ -42,26 +44,6 @@ class TossGatewayVbank extends TossGatewayBase {
      * 또는, confirmPayment 단계에서 method가 VIRTUAL_ACCOUNT인 경우, 그 응답에 가상계좌 정보가 포함되어 옵니다.
      * 여기서는 confirmPayment 응답에 가상계좌 정보가 포함된다고 가정하고, afterPaymentConfirmation에서 처리.
      */
-
-    /**
-     * (선택적) 가상계좌 설정 필드 추가 (예: 입금 기한)
-     */
-    public function registerOptionsFields(&$subTab): void {
-        parent::registerOptionsFields($subTab); // 공통 필드 등록
-
-        // 예시: 가상계좌 입금 기한 설정 (토스 SDK에서 validHours로 제어)
-        // $vbankGroup = $subTab->findGroup("mphb_payments_{$this->getId()}_main_settings");
-        // if ($vbankGroup) {
-        //     $vbankGroup->addField(FieldFactory::create("mphb_payment_gateway_{$this->getId()}_vbank_valid_hours", [
-        //         'type'        => 'number',
-        //         'label'       => __('Virtual Account Expiry (Hours)', 'mphb-toss-payments'),
-        //         'default'     => '48', // 기본 48시간
-        //         'description' => __('The time limit in hours for virtual account deposits. Leave empty for Toss Payments default.', 'mphb-toss-payments'),
-        //         'min'         => '1',
-        //     ]));
-        // }
-        // 실제 이 값은 checkout shortcode의 JS에서 Toss SDK 파라미터로 전달되어야 함.
-    }
 
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
