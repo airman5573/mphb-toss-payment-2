@@ -47,13 +47,13 @@ class TossGlobalSettingsTab {
         // 1. 탭 객체 생성
         $tab = new SettingsTab(
             self::TAB_ID,
-            __( 'Toss Payments API', 'mphb-toss-payments' ),
+            __( '토스페이먼츠 공용키', 'mphb-toss-payments' ),
             'mphb_settings' // MPHB 설정 페이지의 기본 옵션 그룹 이름
             // 네 번째 인자는 $subTabName 이므로, 여기서는 설명을 전달하지 않습니다.
         );
 
         // 2. 설명용 그룹 추가
-        $description_text = __( '여기서 Toss Payments의 API 키를 설정하세요. 세부 설정은 "호텔 예약" > "설정" > "결제 게이트웨이"에서 할 수 있습니다.', 'mphb-toss-payments' );
+        $description_text = '';
 
         $description_group = new SettingsGroup(
             'mphb_toss_global_api_description_group', // 고유 ID
@@ -67,7 +67,7 @@ class TossGlobalSettingsTab {
         // 3. API 키 설정 그룹 생성
         $api_keys_group = new SettingsGroup(
             'mphb_toss_global_api_keys_group',
-            __( 'Global API Keys', 'mphb-toss-payments' ),
+            __( '토스페이먼츠 공용 API 키', 'mphb-toss-payments' ),
             $tab->getOptionGroupName()
         );
 
@@ -76,7 +76,7 @@ class TossGlobalSettingsTab {
             'type'        => 'text',
             'label'       => __( 'Client Key', 'mphb-toss-payments' ),
             'default'     => 'test_ck_ma60RZblrqo5YwQmZd6z3wzYWBn1',
-            'description' => __( 'Toss Payments Client Key를 입력하세요. 이 키는 모든 Toss Payments 게이트웨이에서 사용됩니다.', 'mphb-toss-payments' ),
+            'description' => '',
             'size'        => 'regular',
         ] );
 
@@ -84,7 +84,7 @@ class TossGlobalSettingsTab {
             'type'        => 'text',
             'label'       => __( 'Secret Key', 'mphb-toss-payments' ),
             'default'     => 'test_sk_6BYq7GWPVv2Ryd2QGEm4VNE5vbo1',
-            'description' => __( 'Toss Payments Secret Key를 입력하세요. 이 키는 모든 Toss Payments 게이트웨이에서 사용됩니다.', 'mphb-toss-payments' ),
+            'description' => '',
             'size'        => 'regular',
         ] );
 
