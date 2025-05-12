@@ -476,7 +476,7 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
      * 사용자에게 보여질 게이트웨이의 제목을 반환합니다. (MPHB 설정값 우선)
      */
     public function getTitleForUser(): string {
-        $title = $this->get_option('title', $this->getDefaultTitle());
+        $title = $this->get_gateway_option('title', $this->getDefaultTitle());
         function_exists('ray') && ray('[TOSS_GATEWAY_BASE] getTitleForUser called for Gateway ID: ' . $this->getId() . '. Title: ' . $title)->blue()->label('DISPLAY');
         return $title;
     }
@@ -485,9 +485,23 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
      * 사용자에게 보여질 게이트웨이 설명을 반환합니다. (MPHB 설정값 우선)
      */
     public function getDescriptionForUser(): string {
-        $description = $this->get_option('description', $this->getDefaultDescription());
+        $description = $this->get_gateway_option('description', $this->getDefaultDescription());
         function_exists('ray') && ray('[TOSS_GATEWAY_BASE] getDescriptionForUser called for Gateway ID: ' . $this->getId())->blue()->label('DISPLAY');
         // function_exists('ray') && ray('Description:', $description)->text(); // Can be long
         return $description;
+    }
+
+    /**
+     * Public wrapper to safely get a gateway option value.
+     * This allows external classes (like the ParamsBuilder) to access options
+     * without directly calling the protected getOption method.
+     *
+     * @param string $optionName The name of the option to retrieve.
+     * @param mixed $defaultValue The default value if the option is not found.
+     * @return mixed The value of the option or the default value.
+     */
+    public function get_gateway_option(string $optionName, $defaultValue = null) {
+        // Inside this class (or its children), we *can* call the protected getOption method.
+        return $this->getOption($optionName, $defaultValue);
     }
 }
