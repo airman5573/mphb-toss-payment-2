@@ -27,7 +27,7 @@ class TossGatewaySsgpay extends TossGatewayBase {
         return __('쓱페이(SSG Pay)로 간편하게 결제합니다. (토스페이먼츠)', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         // Confirm from Toss API: 'SSGPAY' or similar
         return 'SSGPAY';
     }

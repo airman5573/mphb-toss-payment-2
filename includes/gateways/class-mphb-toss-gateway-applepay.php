@@ -27,7 +27,7 @@ class TossGatewayApplepay extends TossGatewayBase {
         return __('Pay with Apple Pay via Toss Payments.', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'APPLEPAY'; // Or 'CARD' if ApplePay is a flow of CARD method. Assuming 'APPLEPAY' is a distinct method for SDK.
     }
 

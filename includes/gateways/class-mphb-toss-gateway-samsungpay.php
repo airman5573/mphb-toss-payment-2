@@ -27,7 +27,7 @@ class TossGatewaySamsungpay extends TossGatewayBase {
         return __('삼성페이로 간편하게 결제합니다. (토스페이먼츠)', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'SAMSUNGPAY';
     }
 

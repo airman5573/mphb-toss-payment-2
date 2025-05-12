@@ -27,7 +27,7 @@ class TossGatewayNpay extends TossGatewayBase {
         return __('네이버페이로 간편하게 결제합니다. (토스페이먼츠)', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'NAVERPAY';
     }
 

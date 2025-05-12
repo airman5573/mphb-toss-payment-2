@@ -27,7 +27,7 @@ class TossGatewayPaypal extends TossGatewayBase {
         return __('페이팔을 통해 결제합니다. (토스페이먼츠 연동)', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         // This method string needs to be confirmed from Toss Payments documentation for PayPal integration.
         // It could be 'PAYPAL' or might be processed as a 'CARD' type transaction by Toss.
         // Assuming 'PAYPAL' for now.

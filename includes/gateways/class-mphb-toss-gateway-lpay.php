@@ -27,7 +27,7 @@ class TossGatewayLpay extends TossGatewayBase {
         return __('엘페이(L.Pay)로 간편하게 결제합니다. (토스페이먼츠)', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         // Toss API documentation should confirm the exact method string.
         // It could be 'LPAY' or a generic easy pay method with parameters.
         // For now, assuming 'LPAY' based on the pattern.

@@ -28,7 +28,7 @@ class TossGatewayVbank extends TossGatewayBase {
         return __('안내되는 가상계좌로 입금하여 결제를 완료합니다.', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'VIRTUAL_ACCOUNT'; // 토스페이먼츠 가상계좌 메소드
     }
 

@@ -27,7 +27,7 @@ class TossGatewayPayco extends TossGatewayBase {
         return __('페이코로 간편하게 결제합니다. (토스페이먼츠)', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'PAYCO';
     }
 

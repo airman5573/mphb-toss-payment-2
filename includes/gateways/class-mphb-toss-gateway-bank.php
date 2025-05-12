@@ -27,7 +27,7 @@ class TossGatewayBank extends TossGatewayBase {
         return __('토스페이먼츠를 통해 계좌이체로 결제합니다.', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'TRANSFER'; // 토스페이먼츠 계좌이체 메소드
     }
 

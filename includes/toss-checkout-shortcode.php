@@ -386,7 +386,6 @@ class MPHBTossPaymentParamsBuilder {
 	}
 } // End of MPHBTossPaymentParamsBuilder
 
-
 /**
  * Class MPHBTossCheckoutView
  * 체크아웃 페이지의 HTML, CSS, JavaScript를 렌더링하는 역할을 담당합니다.
@@ -463,7 +462,6 @@ class MPHBTossCheckoutView {
 		}
 
 		if ( empty( $this->reserved_rooms_details_html ) && function_exists( 'mphb_get_reserved_rooms_details_list' ) ) {
-			// Ensure mphb_get_reserved_rooms_details_list is available and safe to call
 			$this->reserved_rooms_details_html = mphb_get_reserved_rooms_details_list( $booking, [ 'use_links' => false ] );
 		}
 	}
@@ -479,10 +477,10 @@ class MPHBTossCheckoutView {
 		$booking                        = $this->data_provider->get_booking();
 		$payment_entity                 = $this->data_provider->get_payment_entity();
 		$selected_toss_gateway_object   = $this->data_provider->get_selected_toss_gateway_object();
-		$actual_toss_method             = $this->data_provider->get_actual_toss_method(); // Use the method from gateway object
+		// $actual_toss_method             = $this->data_provider->get_actual_toss_method(); // 이 줄을 제거하거나 주석 처리합니다.
 		$error_code                     = $this->data_provider->get_error_code();
 		$error_message                  = $this->data_provider->get_error_message();
-		$payment_params_for_js          = $this->payment_params; // Already prepared with JS flags
+		$payment_params_for_js          = $this->payment_params; 
 
 		ob_start();
 		?>
@@ -511,7 +509,7 @@ class MPHBTossCheckoutView {
 			.mphb_sc_checkout-form .mphb-booking-details-section .accommodations-title { display: block; font-weight: 500; margin-bottom: 0.3em; color: #495057; }
 			.mphb_sc_checkout-form .mphb-booking-details-section .accommodations-list { display: block; padding-left: 1.5em; }
             .mphb_sc_checkout-form .mphb-booking-details-section .accommodations-list ul { list-style: disc; }
-			.mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details li { list-style: none; } /* Redundant, already set for ul parent */
+			.mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details li { list-style: none; } 
 			.mphb_sc_checkout-form .mphb-checkout-payment-section .mphb-gateway-description { margin-bottom: 1.5em; padding: 1em; background-color: #e9ecef; border-radius: 4px; }
 			.mphb_sc_checkout-form .mphb-checkout-terms-wrapper { margin-top: 2em; text-align: center; }
 			#mphb-toss-pay-btn { cursor: pointer; color: white; background-color: #007bff; border-color: #007bff; padding: 0.75em 1.5em; font-size: 1em; border-radius: 0.3rem; transition: background-color 0.15s ease-in-out; }
@@ -572,8 +570,6 @@ class MPHBTossCheckoutView {
 					<?php echo wp_kses_post( wpautop( $selected_toss_gateway_object->getDescriptionForUser() ) ); ?>
 				</div>
 
-				<?php /* No specific billing fields needed for Toss Payments Standard SDK on this page */ ?>
-
 				<div class="mphb-checkout-terms-wrapper">
 					<button type="button" id="mphb-toss-pay-btn" class="button mphb-button mphb-confirm-reservation">
 						<?php echo esc_html__( 'Proceed to Payment', 'mphb-toss-payments' ); ?>
@@ -611,7 +607,7 @@ class MPHBTossCheckoutView {
 					return;
 				}
 
-				const tossMethodForSDK = paymentParamsJS.toss_method; // This comes from PHP: $selected_gateway_object->getTossMethod()
+				const tossMethodForSDK = paymentParamsJS.toss_method; 
 				if (!tossMethodForSDK) {
 					console.error("MPHB Toss Checkout: toss_method missing in JS params.");
 					messageArea.text('<?php echo esc_js( __( 'Payment method information missing (JSEP02).', 'mphb-toss-payments' ) ); ?>').addClass('mphb-error');
@@ -638,42 +634,30 @@ class MPHBTossCheckoutView {
 							failUrl: paymentParamsJS.fail_url,
 							customerEmail: paymentParamsJS.customer_email,
 							customerName: paymentParamsJS.customer_name,
-                            customerMobilePhone: paymentParamsJS.customer_mobile_phone, // Ensure this is passed if available
-                            // appScheme: 'your_app_scheme_here', // If you integrate with a mobile app for redirection
+                            customerMobilePhone: paymentParamsJS.customer_mobile_phone,
 						};
 
-                        // Apply gateway-specific configurations based on JS flags
                         if (tossMethodForSDK === "CARD") {
 							paymentDataPayload.card = {
-								useEscrow: false, // Default for standard card
+								useEscrow: false, 
 								flowMode: "DEFAULT",
-								useCardPoint: paymentParamsJS.js_flags_use_card_point || false, // Example: make configurable
-								useAppCardOnly: paymentParamsJS.js_flags_use_app_card_only || false, // Example
+								useCardPoint: paymentParamsJS.js_flags_use_card_point || false, 
+								useAppCardOnly: paymentParamsJS.js_flags_use_app_card_only || false, 
                                 internationalCardOnly: paymentParamsJS.js_flags_is_foreign_card_only === true
 							};
 						} else if (tossMethodForSDK === "TRANSFER") {
 							paymentDataPayload.transfer = {
 								useEscrow: paymentParamsJS.js_flags_is_escrow_transfer === true,
-                                // cashReceipt: { type: paymentParamsJS.js_flags_transfer_cash_receipt_type || '미발행' } // if configurable
 							};
 						} else if (tossMethodForSDK === "VIRTUAL_ACCOUNT") {
 							paymentDataPayload.virtualAccount = {
-								// validHours: paymentParamsJS.js_flags_vbank_valid_hours || 24, // If passed from PHP
 								cashReceipt: {
 									type: paymentParamsJS.js_flags_vbank_cash_receipt_type || '미발행'
 								},
-                                customerMobilePhone: paymentParamsJS.customer_mobile_phone, // Often required for VBank notifications
-								useEscrow: false // Default for vbank, unless you have a specific escrow vbank gateway type
+                                customerMobilePhone: paymentParamsJS.customer_mobile_phone, 
+								useEscrow: false 
 							};
-						} else if (tossMethodForSDK === "APPLEPAY") {
-                            // Apple Pay may not require specific sub-objects in paymentDataPayload.
-                            // The SDK handles the Apple Pay sheet.
-                            // If any specific options from Toss: paymentDataPayload.applePay = { ... };
-                        } else if (tossMethodForSDK === "MOBILE_PHONE") {
-                            // paymentDataPayload.mobilePhone = { ... }; // If any specific options
-                        }
-                        // For other easy pays (KAKAOPAY, NAVERPAY, etc.), specific payload options might not be needed
-                        // beyond setting the `method` in `requestPayment`. Check Toss docs if specific options arise.
+						}
 
 						if (window.console) { console.log('Requesting Toss Payment with method:', tossMethodForSDK, 'Payload:', paymentDataPayload); }
 
@@ -701,7 +685,6 @@ class MPHBTossCheckoutView {
 		return ob_get_clean();
 	}
 } // End of MPHBTossCheckoutView
-
 
 /**
  * Class MPHBTossCheckoutShortcodeHandler
@@ -732,29 +715,26 @@ class MPHBTossCheckoutShortcodeHandler {
         }
 		ob_start();
 		try {
-			// 1. 데이터 제공자(DataProvider)를 통해 필요한 데이터 로드 및 검증
 			$data_provider = new MPHBTossCheckoutDataProvider( $this->request_params );
-			$data_provider->prepare_data(); // 실패 시 Exception 발생
+			$data_provider->prepare_data(); 
 
-			// 2. 결제 파라미터 빌더(PaymentParamsBuilder)를 통해 토스 SDK용 파라미터 생성
 			$params_builder = new MPHBTossPaymentParamsBuilder(
 				$data_provider->get_booking(),
 				$data_provider->get_payment_entity(),
 				$data_provider->get_booking_key(),
 				$data_provider->get_booking_id(),
-				$data_provider->get_selected_toss_gateway_object() // Pass the gateway object
+				$data_provider->get_selected_toss_gateway_object() 
 			);
-			$payment_params_for_js = $params_builder->build(); // 실패 시 Exception 발생
+			$payment_params_for_js = $params_builder->build(); 
 
-			// 3. 뷰 렌더러(ViewRenderer)를 통해 HTML 및 JS 생성
 			$view_renderer = new MPHBTossCheckoutView( $data_provider, $payment_params_for_js );
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- View::render() is responsible for escaping.
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			echo $view_renderer->render();
 
-		} catch ( MPHBTossCheckoutException $e ) { // 이 플러그인 내에서 정의된 예외
+		} catch ( MPHBTossCheckoutException $e ) { 
             if (function_exists('ray')) { ray('MPHBTossCheckoutException in ShortcodeHandler:', $e->getMessage())->label('[ShortcodeHandler]')->red(); }
 			$this->render_error_message( $e->getMessage() );
-		} catch ( \Exception $e ) { // 그 외 일반적인 예외
+		} catch ( \Exception $e ) { 
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				error_log( '[MPHB Toss] Uncaught Exception in ShortcodeHandler: ' . $e->getMessage() . "\nStack Trace:\n" . $e->getTraceAsString() );
 			}
@@ -770,34 +750,44 @@ class MPHBTossCheckoutShortcodeHandler {
 	 * @param string $message 표시할 오류 메시지.
 	 */
 	private function render_error_message( string $message ): void {
-		$error_html  = '<div class="mphb_sc_checkout-form mphb-errors-wrapper">'; // Apply form styling for consistency
+		$error_html  = '<div class="mphb_sc_checkout-form mphb-errors-wrapper">';
 		$error_html .= '<h3>' . esc_html__( 'Payment Error', 'mphb-toss-payments' ) . '</h3>';
 		$error_html .= '<p class="mphb-error">' . esc_html( $message ) . '</p>';
 		$error_html .= '<p><a href="' . esc_url( home_url( '/' ) ) . '" class="button mphb-button">' . esc_html__( 'Return to Homepage', 'mphb-toss-payments' ) . '</a></p>';
-		 // Optionally, add a link to retry payment or go to booking page if available
-        if (isset($this->request_params['booking_id'], $this->request_params['booking_key'])) {
-            $booking_id = absint($this->request_params['booking_id']);
-            $booking = MPHB()->getBookingRepository()->findById($booking_id);
-            if ($booking && $booking->getCheckoutUrl()) {
-                 $error_html .= '<p><a href="' . esc_url( $booking->getCheckoutUrl() ) . '" class="button mphb-button">' . esc_html__( 'Try Again', 'mphb-toss-payments' ) . '</a></p>';
-            }
+		
+        // Attempt to build a "Try Again" link that directs back to the /toss-checkout/ page
+        // with the original parameters.
+        $checkout_page_url = home_url('/toss-checkout/'); // As defined in TossGatewayBase::processPayment
+        $retry_params = [];
+
+        if (isset($this->request_params['booking_id'])) {
+            $retry_params['booking_id'] = $this->request_params['booking_id'];
         }
+        if (isset($this->request_params['booking_key'])) {
+            $retry_params['booking_key'] = $this->request_params['booking_key'];
+        }
+        if (isset($this->request_params['mphb_gateway_method'])) {
+            $retry_params['mphb_gateway_method'] = $this->request_params['mphb_gateway_method'];
+        }
+        if (isset($this->request_params['mphb_selected_gateway_id'])) {
+            $retry_params['mphb_selected_gateway_id'] = $this->request_params['mphb_selected_gateway_id'];
+        }
+
+        if (count($retry_params) === 4) { // Ensure all key params are present for a valid retry link
+            $retry_url = add_query_arg($retry_params, $checkout_page_url);
+            $error_html .= '<p><a href="' . esc_url( $retry_url ) . '" class="button mphb-button">' . esc_html__( 'Try Again', 'mphb-toss-payments' ) . '</a></p>';
+        }
+
 		$error_html .= '</div>';
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $error_html is safe.
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo $error_html;
 	}
 } // End of MPHBTossCheckoutShortcodeHandler
 
 /**
  * MPHB Toss Payments 체크아웃 숏코드 콜백 함수.
- * 실제 로직은 MPHBTossCheckoutShortcodeHandler 클래스에 위임합니다.
- *
- * @since x.x.x
- * @return string 렌더링된 체크아웃 페이지 HTML 또는 오류 메시지.
  */
 function mphb_toss_checkout_shortcode_callback(): string {
-	// 핸들러 클래스의 인스턴스를 생성하고, render 메소드를 호출합니다.
-	// $_GET 파라미터를 핸들러에 전달합니다.
 	$handler = new MPHBTossCheckoutShortcodeHandler( $_GET );
 	return $handler->render();
 }

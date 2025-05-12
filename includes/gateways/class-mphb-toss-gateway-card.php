@@ -45,7 +45,7 @@ class TossGatewayCard extends TossGatewayBase {
     /**
      * 토스페이먼츠 JS SDK에 전달할 `method` 값을 반환합니다.
      */
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'CARD'; // 토스페이먼츠 카드 결제 메소드
     }
 

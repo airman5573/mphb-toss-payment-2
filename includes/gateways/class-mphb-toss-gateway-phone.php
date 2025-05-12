@@ -27,7 +27,7 @@ class TossGatewayPhone extends TossGatewayBase {
         return __('휴대폰 소액결제로 간편하게 결제합니다. (토스페이먼츠)', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'MOBILE_PHONE';
     }
 

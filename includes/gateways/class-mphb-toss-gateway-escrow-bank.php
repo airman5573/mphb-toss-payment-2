@@ -27,7 +27,7 @@ class TossGatewayEscrowBank extends TossGatewayBase {
         return __('토스페이먼츠 에스크로를 통해 계좌이체로 안전하게 결제합니다.', 'mphb-toss-payments');
     }
 
-    protected function getTossMethod(): string {
+    public function getTossMethod(): string {
         return 'TRANSFER';
     }
 

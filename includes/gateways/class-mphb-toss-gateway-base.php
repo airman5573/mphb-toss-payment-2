@@ -1,4 +1,5 @@
 <?php
+// File: includes/gateways/class-mphb-toss-gateway-base.php
 namespace MPHBTOSS\Gateways;
 
 use MPHB\Admin\Fields\FieldFactory;
@@ -25,7 +26,12 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
     // 각 하위 클래스에서 이 메소드들을 구현해야 합니다.
     abstract protected function getDefaultTitle(): string;
     abstract protected function getDefaultDescription(): string;
-    abstract protected function getTossMethod(): string; // 예: "CARD", "TRANSFER", "VIRTUAL_ACCOUNT"
+    
+    /**
+     * Returns the Toss Payments method string (e.g., "CARD", "TRANSFER").
+     * This method is now public to be accessible by MPHBTossPaymentParamsBuilder.
+     */
+    abstract public function getTossMethod(): string; // 예: "CARD", "TRANSFER", "VIRTUAL_ACCOUNT"
 
     /**
      * MPHB 설정 탭에 게이트웨이 옵션 필드를 등록합니다.
@@ -73,7 +79,10 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
      * isActive()와 동일하게 사용될 수 있음.
      */
     public function isEnabled(): bool {
-        $enabled = $this->isActive();
+        $enabled = $this->isActive(); // isActive already checks parent::isActive()
+        // It's important that individual gateways (like ApplePay) can override this
+        // to add their own specific availability checks (e.g., User Agent for ApplePay).
+        // The parent::isEnabled() check is done by MPHB itself before calling our gateway's isEnabled().
         function_exists('ray') && ray('[TOSS_GATEWAY_BASE] isEnabled called for Gateway ID: ' . $this->getId() . ', Result: ' . ($enabled ? 'true' : 'false'))->blue()->label('ACTIVATION');
         return $enabled;
     }
@@ -107,28 +116,21 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
         function_exists('ray') && ray('Payment Object:', $payment)->purple();
 
         $checkoutPageUrl = home_url('/toss-checkout/');
-        function_exists('ray') && ray('Using hardcoded checkout page URL:', $checkoutPageUrl)->orange();
-        // $checkoutPageUrl = MPHB()->settings()->pages()->getCheckoutPageUrl(); // MPHB 체크아웃 페이지 URL
-        // if (empty($checkoutPageUrl)) {
-        //     function_exists('ray') && ray('MPHB Checkout Page URL is empty, falling back to hardcoded /toss-checkout/')->orange();
-        //     $checkoutPageUrl = home_url('/toss-checkout/');
-        // } else {
-        //     function_exists('ray') && ray('Using MPHB Checkout Page URL:', $checkoutPageUrl)->green();
-        // }
-
+        function_exists('ray') && ray('Using hardcoded checkout page URL for Toss:', $checkoutPageUrl)->orange();
+        
         $params = [
             'booking_id'               => $booking->getId(),
             'booking_key'              => $booking->getKey(),
-            'mphb_gateway_method'      => $this->getTossMethod(),
-            'mphb_selected_gateway_id' => $this->getId()
+            'mphb_gateway_method'      => $this->getTossMethod(), // This is correct, gets the specific Toss method like "CARD"
+            'mphb_selected_gateway_id' => $this->getId()          // This is the MPHB gateway ID like "toss_card"
         ];
         function_exists('ray') && ray('Parameters for redirect URL:', $params)->purple();
 
         $returnUrl = add_query_arg($params, $checkoutPageUrl);
         function_exists('ray') && ray('Generated Redirect URL:', $returnUrl)->green();
 
-        if (headers_sent()) {
-            function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Headers already sent. Cannot redirect via wp_redirect. URL: ' . $returnUrl)->red()->label('PROCESS_PAYMENT_ERROR');
+        if (headers_sent($file, $line)) {
+            function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Headers already sent. Cannot redirect via wp_redirect. Output started at ' . $file . ':' . $line . '. URL: ' . $returnUrl)->red()->label('PROCESS_PAYMENT_ERROR');
             // Consider an alternative way to inform the user or log this critical error.
             // For instance, displaying a JS redirect or an error message.
             echo "<script>window.location.href = '" . esc_url_raw($returnUrl) . "';</script>";
@@ -139,7 +141,6 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
             exit;
         }
         // MPHB expects an array, but since we exit, it's okay for now.
-        // However, to be strictly compliant if exit wasn't used, it should be:
         // return ['result' => 'success', 'redirect' => $returnUrl];
     }
 
@@ -152,11 +153,11 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
         function_exists('ray') && ray('$_GET parameters:', $_GET)->purple();
 
         if (
-            !isset($_GET['mphb_payment_gateway']) ||
+            !isset($_GET['mphb_payment_gateway']) || // This should be the specific gateway ID like "toss_card"
             strpos($_GET['mphb_payment_gateway'], self::MPHB_GATEWAY_ID_PREFIX) !== 0 ||
             !isset($_GET['callback_type'], $_GET['booking_id'], $_GET['booking_key'])
         ) {
-            function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Static callback: Missing or invalid required GET parameters. Exiting.')->orange();
+            function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Static callback: Missing or invalid required GET parameters. Exiting. Check for "mphb_payment_gateway".', $_GET)->orange();
             return;
         }
 
@@ -248,28 +249,26 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
         ) {
             function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Handling SUCCESS callback.')->green();
             $paymentKey  = sanitize_text_field($_GET['paymentKey']);
-            $tossOrderId = sanitize_text_field($_GET['orderId']);
+            $tossOrderIdFromUrl = sanitize_text_field($_GET['orderId']); // Renamed to avoid confusion
             $receivedAmount = round((float)$_GET['amount']);
             $expectedAmount = round((float)$payment->getAmount());
 
             function_exists('ray') && ray([
                 'paymentKey' => $paymentKey,
-                'tossOrderId' => $tossOrderId,
+                'tossOrderIdFromUrl' => $tossOrderIdFromUrl,
                 'receivedAmount' => $receivedAmount,
                 'expectedAmount' => $expectedAmount
             ])->purple();
 
             // 주문 ID 및 금액 검증
-            $expectedOrderId = sprintf('mphb_%d_%d', $booking->getId(), $payment->getId()); // This was the format in toss-checkout-shortcode.php before uniqid
-                                                                                          // If your toss-checkout-shortcode still appends uniqid, this will fail.
-                                                                                          // Let's assume it does not append uniqid as per this base class's expectation for now.
-                                                                                          // If it does, the orderId from JS should be like mphb_BOOKINGID_PAYMENTID only
+            // The orderId generated in MPHBTossPaymentParamsBuilder is 'mphb_BOOKINGID_PAYMENTID'
+            $expectedOrderId = sprintf('mphb_%d_%d', $booking->getId(), $payment->getId());
             function_exists('ray') && ray('Expected Order ID for validation: ' . $expectedOrderId)->blue();
 
-            if ($receivedAmount !== $expectedAmount || $tossOrderId !== $expectedOrderId) {
+            if ($receivedAmount !== $expectedAmount || $tossOrderIdFromUrl !== $expectedOrderId) {
                 $validationErrorLog = sprintf(
                     __('Toss Payment Mismatch. Received Amount: %s (Expected: %s). Received OrderID: %s (Expected: %s)', 'mphb-toss-payments'),
-                    $receivedAmount, $expectedAmount, $tossOrderId, $expectedOrderId
+                    $receivedAmount, $expectedAmount, $tossOrderIdFromUrl, $expectedOrderId
                 );
                 function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Payment Mismatch.', $validationErrorLog)->red();
                 MPHB()->paymentManager()->failPayment($payment, $validationErrorLog);
@@ -283,25 +282,27 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
                 $tossApi = new TossAPI($this->getSecretKey(), TossGlobalSettingsTab::is_debug_mode());
                 function_exists('ray') && ray('TossAPI Instantiated. Secret Key (prefix): '.substr($this->getSecretKey(),0,10).'..., Debug Mode: '.(TossGlobalSettingsTab::is_debug_mode()?'Yes':'No'))->purple();
 
-                $result = $tossApi->confirmPayment($paymentKey, $tossOrderId, (float)$expectedAmount);
+                // Use $tossOrderIdFromUrl which came from the success redirect and was validated.
+                $result = $tossApi->confirmPayment($paymentKey, $tossOrderIdFromUrl, (float)$expectedAmount);
                 function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Toss API confirmPayment Response:', $result)->purple();
 
                 if ($result && isset($result->status) && $result->status === 'DONE') {
                     function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Payment successfully confirmed by Toss API (Status: DONE).')->green();
-                    $payment->setTransactionId($paymentKey);
+                    $payment->setTransactionId($paymentKey); // Use paymentKey from Toss as transaction ID
                     $note = sprintf(
                         __('Toss Payment Approved (%s). Payment Key: %s', 'mphb-toss-payments'),
-                        $this->getTitleForUser(),
+                        $this->getTitleForUser(), // Get the title of the specific gateway (e.g., "Credit Card (Toss)")
                         $paymentKey
                     );
                     function_exists('ray') && ray('Payment Note:', $note)->blue();
 
-                    $paymentMethodName = $this->getPaymentMethodNameFromResult($result);
-                    function_exists('ray') && ray('Payment Method Name from Result:', $paymentMethodName)->blue();
-                    update_post_meta($payment->getId(), '_mphb_payment_type', $paymentMethodName);
-                    update_post_meta($payment->getId(), '_mphb_toss_payment_details', $result);
+                    $paymentMethodNameFromResult = $this->getPaymentMethodNameFromResult($result);
+                    function_exists('ray') && ray('Payment Method Name from Result:', $paymentMethodNameFromResult)->blue();
+                    update_post_meta($payment->getId(), '_mphb_payment_type', $paymentMethodNameFromResult); // Stores "Credit Card", "Bank Transfer", etc.
+                    update_post_meta($payment->getId(), '_mphb_toss_payment_details', $result); // Store the whole result for records
                     function_exists('ray') && ray('Payment meta updated: _mphb_payment_type, _mphb_toss_payment_details')->blue();
 
+                    // Call the specific gateway's afterPaymentConfirmation hook
                     $this->afterPaymentConfirmation($payment, $booking, $result);
 
                     MPHB()->paymentManager()->completePayment($payment, $note);
@@ -345,33 +346,29 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
         }
 
         // 그 외의 경우 (예: callback_type이 success/fail이 아니거나, 필수 파라미터 누락)
-        function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Invalid callback parameters or type. Callback Type: ' . $callbackType . '. GET Params: ', $_GET)->red();
+        function_exists('ray') && ray('[TOSS_GATEWAY_BASE] Invalid callback parameters or type. Callback Type: ' . esc_html($callbackType) . '. GET Params: ', $_GET)->red();
         wp_die(__('Invalid callback parameters.', 'mphb-toss-payments'), __('Callback Error', 'mphb-toss-payments'), ['response' => 400]);
     }
 
 
     /**
      * 체크아웃 페이지로 파라미터와 함께 리다이렉트할 URL을 생성합니다.
+     * This is used for redirecting back to the /toss-checkout/ page, typically on failure.
      */
     protected function getCheckoutRedirectUrlWithParams(Booking $booking, array $params = []): string {
         function_exists('ray') && ray('[TOSS_GATEWAY_BASE] getCheckoutRedirectUrlWithParams called for Gateway ID: ' . $this->getId())->blue()->label('URL_BUILDER');
         function_exists('ray') && ray('Booking Object:', $booking)->purple();
         function_exists('ray') && ray('Additional Params:', $params)->purple();
 
-        $checkoutPageUrl = MPHB()->settings()->pages()->getCheckoutPageUrl();
-        if (empty($checkoutPageUrl)) {
-            $checkoutPageUrl = home_url('/toss-checkout/');
-            function_exists('ray') && ray('MPHB Checkout Page URL empty, using hardcoded: ' . $checkoutPageUrl)->orange();
-        } else {
-            function_exists('ray') && ray('Using MPHB Checkout Page URL: ' . $checkoutPageUrl)->green();
-        }
-
+        // The checkout page is consistently /toss-checkout/ as per processPayment
+        $checkoutPageUrl = home_url('/toss-checkout/');
+        function_exists('ray') && ray('Using hardcoded checkout page URL for redirect: ' . $checkoutPageUrl)->orange();
 
         $defaultParams = [
             'booking_id'               => $booking->getId(),
             'booking_key'              => $booking->getKey(),
-            'mphb_gateway_method'      => $this->getTossMethod(),
-            'mphb_selected_gateway_id' => $this->getId()
+            'mphb_gateway_method'      => $this->getTossMethod(), // Method of the current gateway instance
+            'mphb_selected_gateway_id' => $this->getId()          // ID of the current gateway instance
         ];
         function_exists('ray') && ray('Default Params for URL:', $defaultParams)->purple();
 
@@ -388,31 +385,58 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
         function_exists('ray') && ray('API Result for method extraction:', $result)->purple();
 
         if (isset($result->method)) {
-            $method = strtoupper($result->method);
+            $method = strtoupper($result->method); // CARD, TRANSFER, VIRTUAL_ACCOUNT, EASY_PAY, MOBILE_PHONE etc.
             function_exists('ray') && ray('Toss API Method: ' . $method)->blue();
+            
+            $paymentMethodName = $this->getTitleForUser(); // Default to the gateway's title
+
             switch ($method) {
                 case 'CARD':
-                    $name = !empty($result->card->company) ? $result->card->company : __('신용카드', 'mphb-toss-payments');
-                    function_exists('ray') && ray('Determined Method Name: CARD - ' . $name)->green();
-                    return $name;
+                    $name = __('Credit Card', 'mphb-toss-payments');
+                    if (!empty($result->card->company)) {
+                        $name = $result->card->company;
+                    }
+                    if (!empty($result->card->cardType)) {
+                         $name .= ' (' . ucfirst(strtolower($result->card->cardType)) . ')'; // e.g., (Credit), (Check)
+                    }
+                    $paymentMethodName = $name;
+                    break;
                 case 'TRANSFER':
-                    function_exists('ray') && ray('Determined Method Name: TRANSFER - 계좌이체')->green();
-                    return __('계좌이체', 'mphb-toss-payments');
+                    $paymentMethodName = __('Bank Transfer', 'mphb-toss-payments');
+                    if (!empty($result->transfer->bankCode) && function_exists('mphb_toss_get_bank_name_by_code')) { // Example helper
+                        // $paymentMethodName = mphb_toss_get_bank_name_by_code($result->transfer->bankCode);
+                    }
+                    break;
                 case 'VIRTUAL_ACCOUNT':
-                    function_exists('ray') && ray('Determined Method Name: VIRTUAL_ACCOUNT - 가상계좌')->green();
-                    return __('가상계좌', 'mphb-toss-payments');
+                    $paymentMethodName = __('Virtual Account', 'mphb-toss-payments');
+                    break;
                 case 'MOBILE_PHONE':
-                    function_exists('ray') && ray('Determined Method Name: MOBILE_PHONE - 휴대폰 소액결제')->green();
-                    return __('휴대폰 소액결제', 'mphb-toss-payments');
+                    $paymentMethodName = __('Mobile Phone Payment', 'mphb-toss-payments');
+                    break;
+                case 'EASY_PAY': // General easy pay, specific provider might be in $result->easyPay->provider
+                    $provider = isset($result->easyPay->provider) ? $result->easyPay->provider : __('Easy Pay', 'mphb-toss-payments');
+                    $paymentMethodName = $provider;
+                    break;
+                // Toss specific easy payments often have their own method names
                 case 'TOSSPAY':
-                    function_exists('ray') && ray('Determined Method Name: TOSSPAY - 토스페이')->green();
-                    return __('토스페이', 'mphb-toss-payments');
+                    $paymentMethodName = __('TossPay', 'mphb-toss-payments');
+                    break;
+                case 'NAVERPAY':
+                    $paymentMethodName = __('Naver Pay', 'mphb-toss-payments');
+                    break;
+                case 'KAKAOPAY':
+                    $paymentMethodName = __('Kakao Pay', 'mphb-toss-payments');
+                    break;
+                // ... add other specific easy pay methods if Toss uses them ...
                 default:
-                    $defaultName = ucfirst(strtolower(str_replace("_", " ", $result->method)));
-                    function_exists('ray') && ray('Determined Method Name: DEFAULT - ' . $defaultName)->green();
-                    return $defaultName;
+                    // Try to make a sensible default from the method string
+                    $paymentMethodName = ucwords(strtolower(str_replace("_", " ", $method)));
+                    break;
             }
+            function_exists('ray') && ray('Determined Payment Method Name: ' . $paymentMethodName)->green();
+            return $paymentMethodName;
         }
+
         $fallbackTitle = $this->getTitleForUser();
         function_exists('ray') && ray('No method in result, falling back to gateway title: ' . $fallbackTitle)->orange();
         return $fallbackTitle;
@@ -422,6 +446,8 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
      * 결제 승인 후 각 하위 게이트웨이별로 추가적인 처리를 할 수 있는 메소드입니다.
      * (예: 가상계좌 정보 저장 등)
      * 하위 클래스에서 필요에 따라 오버라이드합니다.
+     * The base implementation now handles general VIRTUAL_ACCOUNT data if $this->getTossMethod() matches.
+     * Specific gateways can call parent::afterPaymentConfirmation() and then add their unique logic.
      */
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         function_exists('ray') && ray('[TOSS_GATEWAY_BASE] afterPaymentConfirmation called for Gateway ID: ' . $this->getId())->blue()->label('POST_CONFIRMATION');
@@ -429,17 +455,20 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
         function_exists('ray') && ray('Booking Object:', $booking)->purple();
         function_exists('ray') && ray('Toss Result:', $tossResult)->purple();
 
-        // 기본적으로 아무 작업도 하지 않음.
-        // 예시: 가상계좌 정보 저장
+        // Generic handling for VIRTUAL_ACCOUNT if the current gateway is for VIRTUAL_ACCOUNT
+        // This check is now more robust, ensuring it only runs for VBank gateways.
         if (strtoupper($this->getTossMethod()) === 'VIRTUAL_ACCOUNT' && isset($tossResult->virtualAccount)) {
-            function_exists('ray') && ray('Processing VIRTUAL_ACCOUNT specific data.')->green();
-            update_post_meta($payment->getId(), '_mphb_toss_vbank_account_number', $tossResult->virtualAccount->accountNumber);
-            update_post_meta($payment->getId(), '_mphb_toss_vbank_bank_code', $tossResult->virtualAccount->bankCode);
-            update_post_meta($payment->getId(), '_mphb_toss_vbank_holder_name', $tossResult->virtualAccount->customerName);
-            update_post_meta($payment->getId(), '_mphb_toss_vbank_due_date', $tossResult->virtualAccount->dueDate);
-            function_exists('ray') && ray('Virtual account details saved to payment meta.', $tossResult->virtualAccount)->purple();
+            function_exists('ray') && ray('Base: Processing VIRTUAL_ACCOUNT specific data.')->green();
+            $vAccount = $tossResult->virtualAccount;
+            update_post_meta($payment->getId(), '_mphb_toss_vbank_account_number', $vAccount->accountNumber ?? '');
+            update_post_meta($payment->getId(), '_mphb_toss_vbank_bank_code', $vAccount->bankCode ?? '');
+            // update_post_meta($payment->getId(), '_mphb_toss_vbank_bank_name', your_helper_function_to_get_bank_name($vAccount->bankCode ?? ''));
+            update_post_meta($payment->getId(), '_mphb_toss_vbank_customer_name', $vAccount->customerName ?? ''); // 예금주명 (입금자명)
+            update_post_meta($payment->getId(), '_mphb_toss_vbank_due_date', $vAccount->dueDate ?? ''); // 입금 마감일
+            update_post_meta($payment->getId(), '_mphb_toss_vbank_status', $vAccount->status ?? ''); // WAITING_FOR_DEPOSIT 등
+            function_exists('ray') && ray('Base: Virtual account details saved to payment meta.', $vAccount)->purple();
         } else {
-            function_exists('ray') && ray('No specific afterPaymentConfirmation actions for this gateway type or data missing. Toss Method: '.$this->getTossMethod())->blue();
+            function_exists('ray') && ray('Base: No generic VIRTUAL_ACCOUNT actions for this gateway type or data missing. Toss Method: '.$this->getTossMethod())->blue();
         }
     }
 
