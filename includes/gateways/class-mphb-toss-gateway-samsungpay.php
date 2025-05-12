@@ -28,23 +28,32 @@ class TossGatewaySamsungpay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
+        return 'CARD'; // Changed from 'SAMSUNGPAY' to 'CARD'
+    }
+
+    public function getEasyPayProviderCode(): string {
         return 'SAMSUNGPAY';
+    }
+
+    public function getPreferredFlowMode(): string {
+        return 'DIRECT';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
 
-        // Samsung Pay transactions might be reported similar to card transactions
-        if (isset($tossResult->card)) {
+        if (isset($tossResult->easyPay)) {
+            $easyPayInfo = $tossResult->easyPay;
+            update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'SamsungPay');
+            update_post_meta($payment->getId(), '_mphb_toss_easy_pay_discount_amount', $easyPayInfo->discountAmount ?? 0);
+        } elseif (isset($tossResult->card)) {
             $cardInfo = $tossResult->card;
             update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? 'SamsungPay');
             update_post_meta($payment->getId(), '_mphb_toss_card_number_masked', $cardInfo->number ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_installment_plan_months', $cardInfo->installmentPlanMonths ?? 0);
             update_post_meta($payment->getId(), '_mphb_toss_card_approve_no', $cardInfo->approveNo ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_type', $cardInfo->cardType ?? '');
-        } elseif (isset($tossResult->easyPay)) { // Or under easyPay
-            $easyPayInfo = $tossResult->easyPay;
-            update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'SamsungPay');
         }
     }
 }
+

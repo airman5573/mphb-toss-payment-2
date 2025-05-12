@@ -28,7 +28,15 @@ class TossGatewayTosspay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
+        return 'CARD'; // Changed from 'TOSSPAY' to 'CARD'
+    }
+
+    public function getEasyPayProviderCode(): string {
         return 'TOSSPAY';
+    }
+
+    public function getPreferredFlowMode(): string {
+        return 'DIRECT';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
@@ -39,6 +47,6 @@ class TossGatewayTosspay extends TossGatewayBase {
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'TossPay');
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_discount_amount', $easyPayInfo->discountAmount ?? 0);
         }
-        // Add specific fields if TossPay returns unique data under $tossResult->tosspay or $tossResult->easyPay
     }
 }
+

@@ -28,7 +28,15 @@ class TossGatewayApplepay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
-        return 'APPLEPAY'; // Or 'CARD' if ApplePay is a flow of CARD method. Assuming 'APPLEPAY' is a distinct method for SDK.
+        return 'CARD'; // Changed from 'APPLEPAY' to 'CARD'
+    }
+
+    public function getEasyPayProviderCode(): string {
+        return 'APPLEPAY';
+    }
+
+    public function getPreferredFlowMode(): string {
+        return 'DIRECT';
     }
 
     public function isEnabled(): bool {
@@ -36,43 +44,38 @@ class TossGatewayApplepay extends TossGatewayBase {
             return false;
         }
 
-        // Apple Pay specific availability check
-        // This check should ideally happen where user agent is reliably available.
-        // Server-side check might not be 100% accurate for all setups (e.g., caching, proxies).
         if (!isset($_SERVER['HTTP_USER_AGENT'])) {
-            return false; // Cannot determine without User Agent
+            return false;
         }
         
         $userAgent = $_SERVER['HTTP_USER_AGENT'];
 
         if (wp_is_mobile()) {
-            // Check for iPhone or iPad
             return (bool) preg_match("/(iPhone|iPad)/i", $userAgent);
         } else {
-            // Check for Safari on Mac (but not Chrome or other browsers on Mac)
             return (strpos($userAgent, 'Macintosh') !== false &&
                     strpos($userAgent, 'Safari/') !== false &&
                     strpos($userAgent, 'Chrome/') === false &&
-                    strpos($userAgent, 'Edg/') === false); // Exclude Edge on Mac too
+                    strpos($userAgent, 'Edg/') === false);
         }
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
 
-        if (isset($tossResult->card)) { // Apple Pay transactions are often reported as card transactions
+        if (isset($tossResult->easyPay)) {
+            $easyPayInfo = $tossResult->easyPay;
+            update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'ApplePay');
+            update_post_meta($payment->getId(), '_mphb_toss_easy_pay_discount_amount', $easyPayInfo->discountAmount ?? 0);
+        } elseif (isset($tossResult->card)) { 
             $cardInfo = $tossResult->card;
-            update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? '');
+            update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? 'ApplePay'); // Card company might be Apple Pay specific
             update_post_meta($payment->getId(), '_mphb_toss_card_number_masked', $cardInfo->number ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_installment_plan_months', $cardInfo->installmentPlanMonths ?? 0);
             update_post_meta($payment->getId(), '_mphb_toss_card_approve_no', $cardInfo->approveNo ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_type', $cardInfo->cardType ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_owner_type', $cardInfo->ownerType ?? '');
         }
-        // If Toss API returns specific applePay object:
-        // elseif (isset($tossResult->applePay)) {
-        //    $applePayInfo = $tossResult->applePay;
-        //    // save relevant applePayInfo fields
-        // }
     }
 }
+

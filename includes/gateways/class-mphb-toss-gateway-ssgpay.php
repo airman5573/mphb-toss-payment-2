@@ -28,8 +28,15 @@ class TossGatewaySsgpay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
-        // Confirm from Toss API: 'SSGPAY' or similar
-        return 'SSGPAY';
+        return 'CARD'; // Changed from 'SSGPAY' to 'CARD'
+    }
+
+    public function getEasyPayProviderCode(): string {
+        return 'SSG'; // Official code for SSG PAY
+    }
+
+    public function getPreferredFlowMode(): string {
+        return 'DIRECT';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
@@ -45,3 +52,4 @@ class TossGatewaySsgpay extends TossGatewayBase {
         }
     }
 }
+

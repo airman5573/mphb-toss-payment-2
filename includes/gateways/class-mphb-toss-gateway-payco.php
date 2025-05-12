@@ -28,7 +28,15 @@ class TossGatewayPayco extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
+        return 'CARD'; // Changed from 'PAYCO' to 'CARD'
+    }
+
+    public function getEasyPayProviderCode(): string {
         return 'PAYCO';
+    }
+
+    public function getPreferredFlowMode(): string {
+        return 'DIRECT';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
@@ -44,3 +52,4 @@ class TossGatewayPayco extends TossGatewayBase {
         }
     }
 }
+

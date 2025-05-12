@@ -1,4 +1,5 @@
 <?php
+// File: includes/gateways/class-mphb-toss-gateway-lpay.php
 namespace MPHBTOSS\Gateways;
 
 use MPHB\Entities\Payment;
@@ -28,10 +29,15 @@ class TossGatewayLpay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
-        // Toss API documentation should confirm the exact method string.
-        // It could be 'LPAY' or a generic easy pay method with parameters.
-        // For now, assuming 'LPAY' based on the pattern.
+        return 'CARD'; // Changed from 'LPAY' to 'CARD'
+    }
+
+    public function getEasyPayProviderCode(): string {
         return 'LPAY';
+    }
+
+    public function getPreferredFlowMode(): string {
+        return 'DIRECT';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
@@ -47,3 +53,4 @@ class TossGatewayLpay extends TossGatewayBase {
         }
     }
 }
+

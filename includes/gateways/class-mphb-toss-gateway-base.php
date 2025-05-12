@@ -427,7 +427,7 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
                 case 'KAKAOPAY':
                     $paymentMethodName = __('Kakao Pay', 'mphb-toss-payments');
                     break;
-                // ... add other specific easy pay methods if Toss uses them ...
+
                 default:
                     // Try to make a sensible default from the method string
                     $paymentMethodName = ucwords(strtolower(str_replace("_", " ", $method)));

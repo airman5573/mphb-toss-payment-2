@@ -28,7 +28,15 @@ class TossGatewayKakaopay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
+        return 'CARD'; // Changed from 'KAKAOPAY' to 'CARD'
+    }
+
+    public function getEasyPayProviderCode(): string {
         return 'KAKAOPAY';
+    }
+
+    public function getPreferredFlowMode(): string {
+        return 'DIRECT';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
@@ -38,10 +46,11 @@ class TossGatewayKakaopay extends TossGatewayBase {
             $easyPayInfo = $tossResult->easyPay;
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'KakaoPay');
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_discount_amount', $easyPayInfo->discountAmount ?? 0);
-        } elseif (isset($tossResult->card)) { // Fallback if returned as card info
+        } elseif (isset($tossResult->card)) { 
             $cardInfo = $tossResult->card;
             update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? 'KakaoPay');
             update_post_meta($payment->getId(), '_mphb_toss_card_number_masked', $cardInfo->number ?? '');
         }
     }
 }
+
