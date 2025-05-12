@@ -278,6 +278,8 @@ class MPHBTossPaymentParamsBuilder {
             $params['js_flags_is_escrow_transfer'] = true;
         }
         if ($this->selected_gateway_id === \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX . 'vbank') {
+            function_exists('ray') && ray('$this->selected_gateway_object', $this->selected_gateway_object)->blue();
+            
             $params['js_flags_vbank_cash_receipt_type'] = $this->selected_gateway_object->getOption('cash_receipt_type', '미발행'); 
         }
         // Apple Pay is now handled by the generic easy pay logic below if it uses CARD method
