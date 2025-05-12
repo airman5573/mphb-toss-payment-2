@@ -447,7 +447,7 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
      * 사용자에게 보여질 게이트웨이의 제목을 반환합니다. (MPHB 설정값 우선)
      */
     public function getTitleForUser(): string {
-        $title = $this->get_option('title', $this->getDefaultTitle());
+        $title = $this->getOption('title', $this->getDefaultTitle());
         function_exists('ray') && ray('[TOSS_GATEWAY_BASE] getTitleForUser called for Gateway ID: ' . $this->getId() . '. Title: ' . $title)->blue()->label('DISPLAY');
         return $title;
     }
@@ -456,7 +456,7 @@ abstract class TossGatewayBase extends \MPHB\Payments\Gateways\Gateway {
      * 사용자에게 보여질 게이트웨이 설명을 반환합니다. (MPHB 설정값 우선)
      */
     public function getDescriptionForUser(): string {
-        $description = $this->get_option('description', $this->getDefaultDescription());
+        $description = $this->getOption('description', $this->getDefaultDescription());
         function_exists('ray') && ray('[TOSS_GATEWAY_BASE] getDescriptionForUser called for Gateway ID: ' . $this->getId())->blue()->label('DISPLAY');
         // function_exists('ray') && ray('Description:', $description)->text(); // Can be long
         return $description;

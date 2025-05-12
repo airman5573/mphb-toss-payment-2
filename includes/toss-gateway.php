@@ -125,28 +125,46 @@ class TossGateway extends \MPHB\Payments\Gateways\Gateway
 
     /**
      * 결제 처리 시작.
-     * 여기서 어떤 `mphb_selected_gateway_id`와 `mphb_gateway_method`로 리다이렉트할지 결정해야 합니다.
-     * 현재는 단일 'toss' 게이트웨이로 동작하므로, 특정 결제 수단(예: 카드)으로 고정하거나,
-     * 사용자에게 선택 UI를 제공하고 그 값을 사용해야 합니다.
-     * 지금은 예시로 'toss_card'와 'CARD'를 사용합니다.
+     * 이 메소드는 `/toss-checkout/` 페이지로 즉시 리다이렉트합니다.
+     * 리다이렉트 시 사용될 `mphb_selected_gateway_id`와 `mphb_gateway_method`는
+     * 현재 게이트웨이 인스턴스에서 제공하는 값(`$this->getId()`, `$this->getTossMethod()`)을 사용합니다.
+     * 이는 첫 번째 예시 코드에서 'toss_card'와 'CARD'로 고정했던 부분을 동적으로 처리하는 방식입니다.
      */
     public function processPayment(Booking $booking, Payment $payment): array
     {
-        $checkoutPageUrl = MPHB()->settings()->pages()->getCheckoutPageUrl();
-        if (empty($checkoutPageUrl)) {
-            $checkoutPageUrl = home_url('/toss-checkout/');
-        }
+        // 사용자의 요청에 따라 체크아웃 페이지 URL을 '/toss-checkout/'으로 고정합니다.
+        $checkoutPageUrl = home_url('/toss-checkout/');
 
-        $returnUrl = add_query_arg([
+        // 리다이렉션 URL에 포함될 파라미터를 설정합니다.
+        // mphb_gateway_method는 이 게이트웨이가 지원하는 Toss 결제 수단 (예: CARD, TRANSFER 등)
+        // mphb_selected_gateway_id는 현재 활성화된 게이트웨이의 ID (예: toss_card, toss_transfer 등)
+        $params = [
             'booking_id'               => $booking->getId(),
             'booking_key'              => $booking->getKey(),
-            'mphb_gateway_method'      => 'CARD', // 예시: 기본값으로 카드 사용
-            'mphb_selected_gateway_id' => 'toss_card' // 예시: 기본값으로 카드 게이트웨이 ID 사용
-                                                   // 실제로는 이 값을 동적으로 결정해야 함
-        ], $checkoutPageUrl);
+            'mphb_gateway_method'      => $this->getTossMethod(), // 현재 게이트웨이의 Toss 결제 방식
+            'mphb_selected_gateway_id' => $this->getId()          // 현재 게이트웨이의 ID
+        ];
 
-        wp_redirect($returnUrl);
-        exit;
+        $returnUrl = add_query_arg($params, $checkoutPageUrl);
+
+        // 헤더가 이미 전송되었는지 확인합니다.
+        if (headers_sent()) {
+            // 헤더가 이미 전송된 경우 wp_redirect는 작동하지 않으므로,
+            // JavaScript를 사용하여 클라이언트 사이드에서 리다이렉션을 시도합니다.
+            // 이 경우, 서버 로그에 오류를 기록하거나 다른 방식으로 문제를 알리는 것이 좋습니다.
+            echo "<script>window.location.href = '" . esc_url_raw($returnUrl) . "';</script>";
+            exit;
+        } else {
+            // 헤더가 전송되지 않았다면, 표준 워드프레스 방식으로 리다이렉트합니다.
+            wp_redirect($returnUrl);
+            exit;
+        }
+
+        // 참고: wp_redirect 후 exit가 호출되므로 이 지점은 실행되지 않습니다.
+        // 만약 exit를 사용하지 않고 MPHB의 표준 응답 형식을 따라야 한다면,
+        // 다음과 같은 배열을 반환해야 합니다:
+        // return ['result' => 'success', 'redirect' => $returnUrl];
+        // 현재 구조에서는 exit로 인해 반환 값이 실질적으로 사용되지 않습니다.
     }
 
     /**
