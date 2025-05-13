@@ -7,7 +7,6 @@ use MPHB\Admin\Groups\SettingsGroup;
 use MPHB\Admin\Fields\FieldFactory;
 
 class TossGlobalSettingsTab {
-
     const TAB_ID = 'toss_api_keys';
     const OPTION_CLIENT_KEY   = 'mphb_toss_global_client_key';
     const OPTION_SECRET_KEY   = 'mphb_toss_global_secret_key';
@@ -17,6 +16,33 @@ class TossGlobalSettingsTab {
     public function init() {
         add_filter( 'mphb_generate_settings_tabs', [ $this, 'add_tab_slug' ] );
         add_filter( 'mphb_custom_settings_tab', [ $this, 'render_tab_content' ], 10, 2 );
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_scripts' ] ); // 스크립트 로드 액션 추가
+    }
+
+    /**
+     * 관리자 페이지에 필요한 스크립트를 로드합니다.
+     */
+    public function enqueue_admin_scripts( $hook_suffix ) {
+        $screen = get_current_screen();
+        $page_param = $_GET['page'] ?? ''; // 'page' GET 파라미터
+        $tab_param  = $_GET['tab'] ?? '';   // 'tab' GET 파라미터
+
+        function_exists('ray') && ray('page_param', $page_param)->blue();
+        function_exists('ray') && ray('tab_param', $tab_param)->blue();
+
+        // MPHB 설정 페이지이고, 현재 탭이 토스페이먼츠 API 키 탭일 경우에만 스크립트 로드
+        $is_mphb_settings_page = ($page_param === 'mphb_settings') ||
+                                 (isset($screen->id) && strpos($screen->id, 'mphb_settings') !== false);
+
+        if ( $is_mphb_settings_page && $tab_param === self::TAB_ID ) {
+            wp_enqueue_script(
+                'mphb-toss-admin-settings', // 핸들명
+                MPHB_TOSS_PAYMENTS_PLUGIN_URL . 'assets/js/admin-toss-settings.js', // 파일 경로
+                ['jquery'], // 의존성
+                MPHB_TOSS_PAYMENTS_VERSION, // 버전
+                true // 푸터에 로드
+            );
+        }
     }
 
     public function add_tab_slug( $tabs ) {
@@ -57,7 +83,7 @@ class TossGlobalSettingsTab {
             'mphb_toss_global_api_description_group',
             '',
             $tab->getOptionGroupName(),
-            '' // 여기에 설명을 넣을 수도 있습니다
+            '' 
         );
         $tab->addGroup( $description_group );
 
@@ -72,21 +98,23 @@ class TossGlobalSettingsTab {
         $test_mode_field = FieldFactory::create( self::OPTION_TEST_MODE, [
             'type'        => 'checkbox',
             'label'       => __( '테스트 모드 (Test Mode)', 'mphb-toss-payments' ),
-            'value'       => '1',
-            'default'     => '0',
-            'description' => __( '테스트 결제를 사용하려면 체크하세요.', 'mphb-toss-payments' ),
+            'value'       => '1', // 체크 시 저장될 값
+            'default'     => '0', // 기본값 (체크 안 됨)
+            'description' => __( '테스트 결제를 사용하려면 체크하세요. 체크 시 아래 키들이 테스트용 키로 자동 입력됩니다.', 'mphb-toss-payments' ), // 설명 추가
         ] );
+        // 클라이언트 키 입력 필드
         $client_key_field = FieldFactory::create( self::OPTION_CLIENT_KEY, [
             'type'        => 'text',
             'label'       => __( '클라이언트 키', 'mphb-toss-payments' ),
-            'default'     => 'test_ck_ma60RZblrqo5YwQmZd6z3wzYWBn1',
+            'default'     => 'test_ck_ma60RZblrqo5YwQmZd6z3wzYWBn1', // 기본값은 테스트 키
             'description' => '',
             'size'        => 'regular',
         ] );
+        // 시크릿 키 입력 필드
         $secret_key_field = FieldFactory::create( self::OPTION_SECRET_KEY, [
             'type'        => 'text',
             'label'       => __( '시크릿 키', 'mphb-toss-payments' ),
-            'default'     => 'test_sk_6BYq7GWPVv2Ryd2QGEm4VNE5vbo1',
+            'default'     => 'test_sk_6BYq7GWPVv2Ryd2QGEm4VNE5vbo1', // 기본값은 테스트 키
             'description' => '',
             'size'        => 'regular',
         ] );
@@ -101,10 +129,12 @@ class TossGlobalSettingsTab {
 
         // 필드 배열
         $fields_to_add = [];
-        if ( $client_key_field instanceof InputField ) $fields_to_add[] = $client_key_field;
-        if ( $secret_key_field instanceof InputField ) $fields_to_add[] = $secret_key_field;
-        if ( $test_mode_field instanceof InputField ) $fields_to_add[] = $test_mode_field;
-        if ( $debug_mode_field instanceof InputField ) $fields_to_add[] = $debug_mode_field;
+        // FieldFactory::create가 실제 필드 객체를 반환하는지, 아니면 설정을 반환하는지에 따라 조건이 달라질 수 있습니다.
+        // MPHB의 FieldFactory가 InputField 또는 그 하위 클래스의 인스턴스를 반환한다고 가정합니다.
+        if ( $client_key_field ) $fields_to_add[] = $client_key_field; // 타입 체크 생략 (MPHB FieldFactory 특성상)
+        if ( $secret_key_field ) $fields_to_add[] = $secret_key_field;
+        if ( $test_mode_field ) $fields_to_add[] = $test_mode_field;
+        if ( $debug_mode_field ) $fields_to_add[] = $debug_mode_field;
 
         if ( !empty($fields_to_add) ) {
             $api_keys_group->addFields( $fields_to_add );
