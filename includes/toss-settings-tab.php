@@ -23,26 +23,20 @@ class TossGlobalSettingsTab {
      * 관리자 페이지에 필요한 스크립트를 로드합니다.
      */
     public function enqueue_admin_scripts( $hook_suffix ) {
-        $screen = get_current_screen();
         $page_param = $_GET['page'] ?? ''; // 'page' GET 파라미터
         $tab_param  = $_GET['tab'] ?? '';   // 'tab' GET 파라미터
 
-        function_exists('ray') && ray('page_param', $page_param)->blue();
-        function_exists('ray') && ray('tab_param', $tab_param)->blue();
-
-        // MPHB 설정 페이지이고, 현재 탭이 토스페이먼츠 API 키 탭일 경우에만 스크립트 로드
-        $is_mphb_settings_page = ($page_param === 'mphb_settings') ||
-                                 (isset($screen->id) && strpos($screen->id, 'mphb_settings') !== false);
-
-        if ( $is_mphb_settings_page && $tab_param === self::TAB_ID ) {
-            wp_enqueue_script(
-                'mphb-toss-admin-settings', // 핸들명
-                MPHB_TOSS_PAYMENTS_PLUGIN_URL . 'assets/js/admin-toss-settings.js', // 파일 경로
-                ['jquery'], // 의존성
-                MPHB_TOSS_PAYMENTS_VERSION, // 버전
-                true // 푸터에 로드
-            );
+        if ($page_param !== 'mphb_settings' || $tab_param !== self::TAB_ID) {
+            return;
         }
+
+        wp_enqueue_script(
+            'mphb-toss-admin-settings', // 핸들명
+            MPHB_TOSS_PAYMENTS_PLUGIN_URL . 'assets/js/admin-toss-settings.js', // 파일 경로
+            ['jquery'], // 의존성
+            MPHB_TOSS_PAYMENTS_VERSION, // 버전
+            true // 푸터에 로드
+        );
     }
 
     public function add_tab_slug( $tabs ) {

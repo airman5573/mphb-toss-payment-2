@@ -1,4 +1,5 @@
 jQuery(document).ready(function($) {
+    alert("LOADED");
     const testModeCheckboxId = 'mphb_toss_global_test_mode';
     const clientKeyInputId   = 'mphb_toss_global_client_key';
     const secretKeyInputId   = 'mphb_toss_global_secret_key';
