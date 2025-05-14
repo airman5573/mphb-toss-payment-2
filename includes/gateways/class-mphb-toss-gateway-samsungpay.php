@@ -28,7 +28,7 @@ class TossGatewaySamsungpay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
-        return 'CARD'; // Changed from 'SAMSUNGPAY' to 'CARD'
+        return 'CARD';
     }
 
     public function getEasyPayProviderCode(): string {
@@ -41,19 +41,27 @@ class TossGatewaySamsungpay extends TossGatewayBase {
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("Samsung Pay Gateway - Payment ID: " . $payment->getId(), $log_context);
 
         if (isset($tossResult->easyPay)) {
             $easyPayInfo = $tossResult->easyPay;
+            mphb_toss_write_log(
+                "Saving EasyPay (Samsung Pay) info: Provider: " . ($easyPayInfo->provider ?? 'N/A'),
+                $log_context
+            );
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'SamsungPay');
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_discount_amount', $easyPayInfo->discountAmount ?? 0);
         } elseif (isset($tossResult->card)) {
+            mphb_toss_write_log("EasyPay object not found, saving Card info as SamsungPay. Company: " . ($tossResult->card->company ?? 'SamsungPay'), $log_context);
             $cardInfo = $tossResult->card;
             update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? 'SamsungPay');
             update_post_meta($payment->getId(), '_mphb_toss_card_number_masked', $cardInfo->number ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_installment_plan_months', $cardInfo->installmentPlanMonths ?? 0);
             update_post_meta($payment->getId(), '_mphb_toss_card_approve_no', $cardInfo->approveNo ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_type', $cardInfo->cardType ?? '');
+        } else {
+            mphb_toss_write_log("Neither easyPay nor card object found in TossResult for SamsungPay.", $log_context . '_Warning');
         }
     }
 }
-

@@ -28,7 +28,7 @@ class TossGatewayKakaopay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
-        return 'CARD'; // Changed from 'KAKAOPAY' to 'CARD'
+        return 'CARD';
     }
 
     public function getEasyPayProviderCode(): string {
@@ -41,16 +41,24 @@ class TossGatewayKakaopay extends TossGatewayBase {
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("Kakaopay Gateway - Payment ID: " . $payment->getId(), $log_context);
 
         if (isset($tossResult->easyPay)) {
             $easyPayInfo = $tossResult->easyPay;
+            mphb_toss_write_log(
+                "Saving EasyPay (Kakaopay) info: Provider: " . ($easyPayInfo->provider ?? 'N/A'),
+                $log_context
+            );
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'KakaoPay');
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_discount_amount', $easyPayInfo->discountAmount ?? 0);
-        } elseif (isset($tossResult->card)) { 
+        } elseif (isset($tossResult->card)) {
+            mphb_toss_write_log("EasyPay object not found, saving Card info as Kakaopay. Company: " . ($tossResult->card->company ?? 'KakaoPay'), $log_context);
             $cardInfo = $tossResult->card;
             update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? 'KakaoPay');
             update_post_meta($payment->getId(), '_mphb_toss_card_number_masked', $cardInfo->number ?? '');
+        } else {
+             mphb_toss_write_log("Neither easyPay nor card object found in TossResult for Kakaopay.", $log_context . '_Warning');
         }
     }
 }
-

@@ -1,8 +1,8 @@
 <?php
 namespace MPHBTOSS\Gateways;
 
-use MPHB\Entities\Payment; // 이 줄 추가
-use MPHB\Entities\Booking; // 이 줄 추가
+use MPHB\Entities\Payment;
+use MPHB\Entities\Booking;
 
 if (!defined('ABSPATH')) {
     exit;
@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 class TossGatewayBank extends TossGatewayBase {
 
     protected function initId(): string {
-        return self::MPHB_GATEWAY_ID_PREFIX . 'bank'; // 예: "toss_bank"
+        return self::MPHB_GATEWAY_ID_PREFIX . 'bank';
     }
 
     protected function setupProperties(): void {
@@ -28,15 +28,25 @@ class TossGatewayBank extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
-        return 'TRANSFER'; // 토스페이먼츠 계좌이체 메소드
+        return 'TRANSFER';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("Bank Transfer Gateway - Payment ID: " . $payment->getId(), $log_context);
+
         if (isset($tossResult->transfer)) {
             $transferInfo = $tossResult->transfer;
+            mphb_toss_write_log(
+                "Saving bank transfer info: BankCode: " . ($transferInfo->bankCode ?? 'N/A') . 
+                ", SettlementStatus: " . ($transferInfo->settlementStatus ?? 'N/A'),
+                $log_context
+            );
             update_post_meta($payment->getId(), '_mphb_toss_transfer_bank_code', $transferInfo->bankCode ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_transfer_settlement_status', $transferInfo->settlementStatus ?? '');
+        } else {
+            mphb_toss_write_log("Transfer object not found in TossResult.", $log_context . '_Warning');
         }
     }
 }

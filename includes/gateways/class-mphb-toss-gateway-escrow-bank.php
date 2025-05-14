@@ -33,12 +33,24 @@ class TossGatewayEscrowBank extends TossGatewayBase {
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("Escrow Bank Transfer Gateway - Payment ID: " . $payment->getId(), $log_context);
+
         if (isset($tossResult->transfer)) {
             $transferInfo = $tossResult->transfer;
+            // Escrow status might be part of transfer object or a separate escrow object in future.
+            $escrowStatus = $transferInfo->escrowStatus ?? ($tossResult->escrow->status ?? 'N/A'); // Example of checking both
+            mphb_toss_write_log(
+                "Saving escrow bank transfer info: BankCode: " . ($transferInfo->bankCode ?? 'N/A') . 
+                ", SettlementStatus: " . ($transferInfo->settlementStatus ?? 'N/A') .
+                ", EscrowStatus: " . $escrowStatus,
+                $log_context
+            );
             update_post_meta($payment->getId(), '_mphb_toss_transfer_bank_code', $transferInfo->bankCode ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_transfer_settlement_status', $transferInfo->settlementStatus ?? '');
-            // Escrow specific details might be part of transferInfo or a separate escrow object
-            update_post_meta($payment->getId(), '_mphb_toss_escrow_status', $transferInfo->escrowStatus ?? 'N/A'); // Example
+            update_post_meta($payment->getId(), '_mphb_toss_escrow_status', $escrowStatus);
+        } else {
+            mphb_toss_write_log("Transfer object (for escrow) not found in TossResult.", $log_context . '_Warning');
         }
     }
 }

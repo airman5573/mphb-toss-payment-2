@@ -33,13 +33,23 @@ class TossGatewayPhone extends TossGatewayBase {
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("Mobile Phone Gateway - Payment ID: " . $payment->getId(), $log_context);
 
         if (isset($tossResult->mobilePhone)) {
             $phoneInfo = $tossResult->mobilePhone;
-            update_post_meta($payment->getId(), '_mphb_toss_phone_customer_mobile', $phoneInfo->customerMobilePhone ?? ''); // customerMobilePhone might not be in confirm response.
+            mphb_toss_write_log(
+                "Saving mobile phone info: SettlementStatus: " . ($phoneInfo->settlementStatus ?? 'N/A'), // customerMobilePhone might not be in confirm response
+                $log_context
+            );
+            update_post_meta($payment->getId(), '_mphb_toss_phone_customer_mobile', $phoneInfo->customerMobilePhone ?? ''); 
             update_post_meta($payment->getId(), '_mphb_toss_phone_settlement_status', $phoneInfo->settlementStatus ?? '');
-            // The 'receiptUrl' is typically available in $tossResult directly if applicable
-            // update_post_meta($payment->getId(), '_mphb_toss_receipt_url', $tossResult->receiptUrl ?? '');
+            // Receipt URL is usually in $tossResult->receipt->url if available
+            if(isset($tossResult->receipt->url)){
+                 update_post_meta($payment->getId(), '_mphb_toss_receipt_url', $tossResult->receipt->url);
+            }
+        } else {
+            mphb_toss_write_log("MobilePhone object not found in TossResult.", $log_context . '_Warning');
         }
     }
 }

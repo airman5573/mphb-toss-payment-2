@@ -28,26 +28,29 @@ class TossGatewayPaypal extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
-        // This method string needs to be confirmed from Toss Payments documentation for PayPal integration.
-        // It could be 'PAYPAL' or might be processed as a 'CARD' type transaction by Toss.
-        // Assuming 'PAYPAL' for now.
         return 'PAYPAL';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("PayPal Gateway - Payment ID: " . $payment->getId(), $log_context);
 
-        // Toss API response for PayPal might be generic or have specific fields.
-        // Example:
-        if (isset($tossResult->paypal)) { // If Toss returns a specific 'paypal' object
+        if (isset($tossResult->paypal)) {
             $paypalInfo = $tossResult->paypal;
+            mphb_toss_write_log(
+                "Saving PayPal info: PayerID: " . ($paypalInfo->payerId ?? 'N/A') . 
+                ", TransactionID (from PayPal obj): " . ($paypalInfo->transactionId ?? 'N/A'),
+                $log_context
+            );
             update_post_meta($payment->getId(), '_mphb_toss_paypal_payer_id', $paypalInfo->payerId ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_paypal_transaction_id', $paypalInfo->transactionId ?? ($tossResult->paymentKey ?? ''));
-        } elseif (isset($tossResult->foreignCardDetails)) { // If processed like a foreign card
+        } elseif (isset($tossResult->foreignCardDetails)) { // Fallback if processed like a foreign card
+             mphb_toss_write_log("PayPal object not found, saving ForeignCardDetails as PayPal. Company: " . ($tossResult->foreignCardDetails->company ?? 'PayPal'), $log_context);
              $cardInfo = $tossResult->foreignCardDetails;
              update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? 'PayPal');
         } else {
-            // Generic logging if specific fields are not known
+            mphb_toss_write_log("Neither paypal nor foreignCardDetails object found in TossResult for PayPal. Method: " . ($tossResult->method ?? 'N/A'), $log_context . '_Warning');
             update_post_meta($payment->getId(), '_mphb_toss_payment_method_details', $tossResult->method ?? 'PayPal');
         }
     }

@@ -8,19 +8,18 @@ if (!defined('WPINC')) {
     exit;
 }
 
-define('MPHB_TOSS_PAYMENTS_VERSION', '1.0.0'); // Ensure this is 1.0.0 or your current version
+define('MPHB_TOSS_PAYMENTS_VERSION', '1.0.0');
 define('MPHB_TOSS_PAYMENTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MPHB_TOSS_PAYMENTS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('MPHB_TOSS_PAYMENTS_PLUGIN_FILE', __FILE__);
 
 // Include core files
+require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/functions.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-exception.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-settings-tab.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-api.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-checkout-shortcode.php';
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-refund.php';
-require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/functions.php';
-// require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/toss-gateway.php'; // This seems to be an older base or general handler, ensure it doesn't conflict with TossGatewayBase logic. If it's not used, you might comment it out.
 
 // Include gateway classes
 require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/gateways/class-mphb-toss-gateway-base.php';
@@ -44,48 +43,49 @@ require_once MPHB_TOSS_PAYMENTS_PLUGIN_DIR . 'includes/gateways/class-mphb-toss-
 
 
 add_action('plugins_loaded', function () {
+    mphb_toss_write_log('MPHB Toss Payments plugin "plugins_loaded" action hook.', 'PluginInitialization');
+
     // 1. Initialize Toss Payments Global Settings Tab
     if (class_exists('\MPHBTOSS\TossGlobalSettingsTab')) {
+        mphb_toss_write_log('Initializing TossGlobalSettingsTab. Debug mode: ' . (\MPHBTOSS\TossGlobalSettingsTab::is_debug_mode() ? 'Enabled' : 'Disabled'), 'PluginInitialization');
         $toss_settings_tab = new \MPHBTOSS\TossGlobalSettingsTab();
         $toss_settings_tab->init();
+    } else {
+        mphb_toss_write_log('TossGlobalSettingsTab class NOT FOUND.', 'PluginInitialization_Error');
     }
 
     // 2. Register Individual Toss Payment Gateway Methods
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayCard')) { new \MPHBTOSS\Gateways\TossGatewayCard(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayBank')) { new \MPHBTOSS\Gateways\TossGatewayBank(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayVbank')) { new \MPHBTOSS\Gateways\TossGatewayVbank(); }
+    $gateways_to_init = [
+        '\MPHBTOSS\Gateways\TossGatewayCard', '\MPHBTOSS\Gateways\TossGatewayBank', '\MPHBTOSS\Gateways\TossGatewayVbank',
+        '\MPHBTOSS\Gateways\TossGatewayApplepay', '\MPHBTOSS\Gateways\TossGatewayEscrowBank', '\MPHBTOSS\Gateways\TossGatewayForeignCard',
+        '\MPHBTOSS\Gateways\TossGatewayKakaopay', '\MPHBTOSS\Gateways\TossGatewayLpay', '\MPHBTOSS\Gateways\TossGatewayNpay',
+        '\MPHBTOSS\Gateways\TossGatewayPayco', '\MPHBTOSS\Gateways\TossGatewayPaypal', '\MPHBTOSS\Gateways\TossGatewayPhone',
+        '\MPHBTOSS\Gateways\TossGatewaySamsungpay', '\MPHBTOSS\Gateways\TossGatewaySsgpay', '\MPHBTOSS\Gateways\TossGatewayTosspay',
+    ];
+
+    foreach ($gateways_to_init as $gateway_class) {
+        if (class_exists($gateway_class)) {
+            // mphb_toss_write_log("Initializing gateway: {$gateway_class}", 'GatewayInitialization'); // Reduced verbosity
+            new $gateway_class();
+        } else {
+            mphb_toss_write_log("Gateway class NOT FOUND: {$gateway_class}", 'GatewayInitialization_Error');
+        }
+    }
     
-    // Initialize newly added gateways
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayApplepay')) { new \MPHBTOSS\Gateways\TossGatewayApplepay(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayEscrowBank')) { new \MPHBTOSS\Gateways\TossGatewayEscrowBank(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayForeignCard')) { new \MPHBTOSS\Gateways\TossGatewayForeignCard(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayKakaopay')) { new \MPHBTOSS\Gateways\TossGatewayKakaopay(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayLpay')) { new \MPHBTOSS\Gateways\TossGatewayLpay(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayNpay')) { new \MPHBTOSS\Gateways\TossGatewayNpay(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayPayco')) { new \MPHBTOSS\Gateways\TossGatewayPayco(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayPaypal')) { new \MPHBTOSS\Gateways\TossGatewayPaypal(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayPhone')) { new \MPHBTOSS\Gateways\TossGatewayPhone(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewaySamsungpay')) { new \MPHBTOSS\Gateways\TossGatewaySamsungpay(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewaySsgpay')) { new \MPHBTOSS\Gateways\TossGatewaySsgpay(); }
-    if (class_exists('\MPHBTOSS\Gateways\TossGatewayTosspay')) { new \MPHBTOSS\Gateways\TossGatewayTosspay(); }
-
-
-    // 3. Register common callback handler (only once)
-    // Make sure TossGatewayBase is loaded before this action.
+    // 3. Register common callback handler
     if (class_exists('\MPHBTOSS\Gateways\TossGatewayBase')) {
+        mphb_toss_write_log('Adding static callback handler for TossGatewayBase.', 'PluginInitialization');
         add_action('init', ['\MPHBTOSS\Gateways\TossGatewayBase', 'handleTossCallbackStatic'], 11);
+    } else {
+        mphb_toss_write_log('TossGatewayBase class NOT FOUND for static callback.', 'PluginInitialization_Error');
     }
 
 }, 9);
 
 
 add_filter('mphb_gateway_has_sandbox', function ($isSandbox, $gatewayId) {
-    // This filter might need adjustment if you implement test mode per gateway or globally.
-    // For now, returning false for all.
     if (strpos($gatewayId, \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX) === 0) {
-        // Potentially check global test mode from TossGlobalSettingsTab::is_test_mode()
-        // return \MPHBTOSS\TossGlobalSettingsTab::is_test_mode();
-        return false; // Or handle sandbox mode based on your plugin's logic
+        return false;
     }
     return $isSandbox;
-}, 10, 2); // Adjusted priority to 10
+}, 10, 2);

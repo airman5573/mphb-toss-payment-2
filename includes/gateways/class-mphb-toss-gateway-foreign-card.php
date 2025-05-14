@@ -33,16 +33,25 @@ class TossGatewayForeignCard extends TossGatewayBase {
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("Foreign Card Gateway - Payment ID: " . $payment->getId(), $log_context);
 
         if (isset($tossResult->card)) {
             $cardInfo = $tossResult->card;
+            mphb_toss_write_log(
+                "Saving foreign card info: Company: " . ($cardInfo->company ?? 'N/A') . 
+                ", ApproveNo: " . ($cardInfo->approveNo ?? 'N/A'),
+                $log_context
+            );
             update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_number_masked', $cardInfo->number ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_installment_plan_months', $cardInfo->installmentPlanMonths ?? 0);
             update_post_meta($payment->getId(), '_mphb_toss_card_approve_no', $cardInfo->approveNo ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_type', $cardInfo->cardType ?? '');
             update_post_meta($payment->getId(), '_mphb_toss_card_owner_type', $cardInfo->ownerType ?? '');
-            update_post_meta($payment->getId(), '_mphb_toss_card_is_foreign', true); // Mark as foreign card transaction
+            update_post_meta($payment->getId(), '_mphb_toss_card_is_foreign', true);
+        } else {
+            mphb_toss_write_log("Card object (for foreign card) not found in TossResult.", $log_context . '_Warning');
         }
     }
 }

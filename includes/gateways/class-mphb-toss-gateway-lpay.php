@@ -29,7 +29,7 @@ class TossGatewayLpay extends TossGatewayBase {
     }
 
     public function getTossMethod(): string {
-        return 'CARD'; // Changed from 'LPAY' to 'CARD'
+        return 'CARD';
     }
 
     public function getEasyPayProviderCode(): string {
@@ -42,15 +42,23 @@ class TossGatewayLpay extends TossGatewayBase {
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("L.Pay Gateway - Payment ID: " . $payment->getId(), $log_context);
 
         if (isset($tossResult->easyPay)) {
             $easyPayInfo = $tossResult->easyPay;
+            mphb_toss_write_log(
+                "Saving EasyPay (L.Pay) info: Provider: " . ($easyPayInfo->provider ?? 'N/A'),
+                $log_context
+            );
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'L.Pay');
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_discount_amount', $easyPayInfo->discountAmount ?? 0);
         } elseif (isset($tossResult->card)) {
+            mphb_toss_write_log("EasyPay object not found, saving Card info as L.Pay. Company: " . ($tossResult->card->company ?? 'L.Pay'), $log_context);
             $cardInfo = $tossResult->card;
             update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? 'L.Pay');
+        } else {
+            mphb_toss_write_log("Neither easyPay nor card object found in TossResult for L.Pay.", $log_context . '_Warning');
         }
     }
 }
-

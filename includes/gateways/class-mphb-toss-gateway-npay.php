@@ -27,47 +27,37 @@ class TossGatewayNpay extends TossGatewayBase {
         return __('네이버페이로 간편하게 결제합니다. (토스페이먼츠)', 'mphb-toss-payments');
     }
 
-    /**
-     * 토스페이먼츠 JS SDK에 전달할 `method` 값을 반환합니다.
-     * 네이버페이는 CARD 메소드의 easyPay 옵션으로 처리됩니다.
-     */
     public function getTossMethod(): string {
         return 'CARD';
     }
 
-    /**
-     * 네이버페이 easyPay 코드를 반환합니다.
-     * @return string
-     */
     public function getEasyPayProviderCode(): string {
         return 'NAVERPAY';
     }
 
-    /**
-     * 네이버페이 결제 시 사용할 flowMode를 반환합니다.
-     * 'DIRECT': 네이버페이 앱/페이지 바로 연결 (권장)
-     * 'DEFAULT': 통합결제창 (네이버페이 선택 가능).
-     * 공식문서에 따르면 flowMode:DEFAULT 일 때 easyPay 파라미터는 통합결제창에 영향을 주지 않을 수 있습니다.
-     * 네이버페이를 명시적으로 사용하려면 'DIRECT'가 적합합니다.
-     * @return string
-     */
     public function getPreferredFlowMode(): string {
         return 'DIRECT';
     }
 
     protected function afterPaymentConfirmation(Payment $payment, Booking $booking, $tossResult) {
         parent::afterPaymentConfirmation($payment, $booking, $tossResult);
+        $log_context = get_class($this) . '::afterPaymentConfirmation';
+        mphb_toss_write_log("Naver Pay Gateway - Payment ID: " . $payment->getId(), $log_context);
 
         if (isset($tossResult->easyPay)) {
             $easyPayInfo = $tossResult->easyPay;
+            mphb_toss_write_log(
+                "Saving EasyPay (Naver Pay) info: Provider: " . ($easyPayInfo->provider ?? 'N/A'),
+                $log_context
+            );
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_provider', $easyPayInfo->provider ?? 'NaverPay');
             update_post_meta($payment->getId(), '_mphb_toss_easy_pay_discount_amount', $easyPayInfo->discountAmount ?? 0);
-        } elseif (isset($tossResult->card)) { // easyPay 결과가 card 정보로 올 수도 있음
+        } elseif (isset($tossResult->card)) {
+            mphb_toss_write_log("EasyPay object not found, saving Card info as NaverPay. Company: " . ($tossResult->card->company ?? 'NaverPay'), $log_context);
             $cardInfo = $tossResult->card;
-            // 네이버페이 결제 시 카드 정보가 반환될 경우, company 필드 등이 '네이버페이' 관련 값으로 올 수 있습니다.
-            // 필요하다면 추가 정보를 저장합니다.
             update_post_meta($payment->getId(), '_mphb_toss_card_company', $cardInfo->company ?? 'NaverPay');
+        } else {
+            mphb_toss_write_log("Neither easyPay nor card object found in TossResult for NaverPay.", $log_context . '_Warning');
         }
     }
 }
-
