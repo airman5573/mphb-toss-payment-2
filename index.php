@@ -90,47 +90,105 @@ add_filter('mphb_gateway_has_sandbox', function ($isSandbox, $gatewayId) {
 
 
 /**
- * Handles the MPHB payment cancelled action to attempt a refund via Toss Payments.
- * It's better to name the hook callback function with a suffix like '_hook' or similar
- * to avoid potential conflicts if 'mphb_toss_handle_mphb_payment_cancelled' is intended for other direct calls.
+ * Handles the MPHB booking status changed action.
+ * If a booking is cancelled, attempts to refund associated Toss Payments.
  *
- * @param \MPHB\Entities\Payment $payment The payment object that was cancelled.
+ * @param \MPHB\Entities\Booking $booking The booking object whose status changed.
+ * @param string $oldStatus The old status of the booking.
  */
-add_action( 'mphb_payment_cancelled', 'mphb_toss_handle_mphb_payment_cancelled_hook', 10, 1 );
-function mphb_toss_handle_mphb_payment_cancelled_hook( \MPHB\Entities\Payment $payment ) {
-    $log_context = 'mphb_toss_handle_mphb_payment_cancelled_hook'; // Updated context
-    $paymentId = $payment->getId();
-    mphb_toss_write_log("MPHB Payment Cancelled Hook Triggered. Payment ID: " . $paymentId, $log_context);
+add_action( 'mphb_booking_status_changed', 'mphb_toss_handle_booking_status_changed_hook', 10, 2 );
+function mphb_toss_handle_booking_status_changed_hook( \MPHB\Entities\Booking $booking, string $oldStatus ) {
+    $log_context = 'mphb_toss_handle_booking_status_changed_hook';
+    $bookingId = $booking->getId();
+    $newStatus = $booking->getStatus(); // Get the new status from the booking object
 
-    var_dump($paymentId);
+    mphb_toss_write_log("MPHB Booking Status Changed Hook. Booking ID: {$bookingId}, Old Status: {$oldStatus}, New Status: {$newStatus}", $log_context);
 
-    // Check if the payment was made through a Toss gateway
-    if (strpos($payment->getGatewayId(), \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX) !== 0) {
-        mphb_toss_write_log("Payment ID: " . $paymentId . " was not made through Toss Payments. Gateway: " . $payment->getGatewayId() . ". No Toss refund attempted.", $log_context);
+    // Only proceed if the new status is 'cancelled'
+    if ($newStatus !== \MPHB\PostTypes\BookingCPT\Statuses::STATUS_CANCELLED) {
+        mphb_toss_write_log("Booking ID: {$bookingId} new status is '{$newStatus}', not 'cancelled'. No Toss refund attempted.", $log_context);
         return;
     }
 
-    // Check if there's a transaction ID (Toss PaymentKey)
-    $tossPaymentKey = $payment->getTransactionId();
-    var_dump($tossPaymentKey);
+    mphb_toss_write_log("Booking ID: {$bookingId} was cancelled. Attempting to find and refund associated Toss payments.", $log_context);
 
-    if (empty($tossPaymentKey)) {
-        mphb_toss_write_log("Payment ID: " . $paymentId . " does not have a Toss PaymentKey (Transaction ID). No Toss refund attempted.", $log_context);
+    // Find payments associated with this booking
+    // MPHB doesn't have a direct PaymentRepository::findAllByBookingId(). We can use WP_Query or get_posts.
+    $payment_args = array(
+        'post_type'      => MPHB()->postTypes()->payment()->getPostType(),
+        'posts_per_page' => -1,
+        'meta_query'     => array(
+            array(
+                'key'   => '_mphb_booking_id',
+                'value' => $bookingId,
+            ),
+        ),
+        'fields'         => 'ids', // Get only post IDs for efficiency
+    );
+
+    $payment_ids = get_posts($payment_args);
+
+    if (empty($payment_ids)) {
+        mphb_toss_write_log("No payments found associated with cancelled Booking ID: {$bookingId}.", $log_context);
         return;
     }
-    
-    // It's generally assumed that if a payment is "cancelled" in MPHB, a full refund is intended.
-    $refundAmount = (float) $payment->getAmount();
 
-    mphb_toss_write_log("Attempting Toss refund for cancelled MPHB Payment ID: " . $paymentId . ". Amount: " . $refundAmount, $log_context);
+    $paymentRepository = MPHB()->getPaymentRepository();
 
-    // Call the existing refund function, now passing the Payment object
-    list($success, $message) = mphb_toss_refund($payment, $refundAmount, 'MPHB 결제 취소로 인한 자동 환불 처리');
+    foreach ($payment_ids as $payment_id) {
+        $payment = $paymentRepository->findById($payment_id);
 
-    if ($success) {
-        mphb_toss_write_log("Successfully processed Toss refund for MPHB Payment ID: " . $paymentId . ". Message: " . $message, $log_context);
-    } else {
-        mphb_toss_write_log("Failed to process Toss refund for MPHB Payment ID: " . $paymentId . ". Error: " . $message, $log_context . '_Error');
-        // Consider adding more robust error notification for admins here if automated refund fails.
+        if (!$payment) {
+            mphb_toss_write_log("Could not retrieve payment object for Payment ID: {$payment_id} (Booking ID: {$bookingId}). Skipping.", $log_context . '_Warning');
+            continue;
+        }
+
+        $paymentStatus = $payment->getStatus();
+        $paymentGatewayId = $payment->getGatewayId();
+        $tossPaymentKey = $payment->getTransactionId();
+
+        mphb_toss_write_log("Checking Payment ID: {$payment->getId()} for Booking ID: {$bookingId}. Status: {$paymentStatus}, Gateway: {$paymentGatewayId}, TxN ID: {$tossPaymentKey}", $log_context);
+
+        // 1. Check if it's a Toss payment
+        if (strpos($paymentGatewayId, \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX) !== 0) {
+            mphb_toss_write_log("Payment ID: {$payment->getId()} is not a Toss payment. Skipping refund.", $log_context);
+            continue;
+        }
+
+        // 2. Check if it has a Toss PaymentKey
+        if (empty($tossPaymentKey)) {
+            mphb_toss_write_log("Payment ID: {$payment->getId()} (Toss Payment) has no Transaction ID (PaymentKey). Skipping refund.", $log_context);
+            continue;
+        }
+
+        // 3. Check if the payment status is one that can typically be refunded
+        //    (e.g., Completed or On-Hold). Avoid refunding pending, failed, or already refunded/cancelled payments.
+        $refundableStatuses = [
+            \MPHB\PostTypes\PaymentCPT\Statuses::STATUS_COMPLETED,
+            \MPHB\PostTypes\PaymentCPT\Statuses::STATUS_ON_HOLD,
+        ];
+        if (!in_array($paymentStatus, $refundableStatuses, true)) {
+            mphb_toss_write_log("Payment ID: {$payment->getId()} has status '{$paymentStatus}', which is not typically refundable via this automated flow. Skipping refund.", $log_context);
+            continue;
+        }
+        
+        // Assume full refund for this payment if the associated booking is cancelled
+        $refundAmount = (float) $payment->getAmount();
+        if ($refundAmount <= 0) {
+            mphb_toss_write_log("Payment ID: {$payment->getId()} has zero or negative amount ({$refundAmount}). Skipping refund.", $log_context);
+            continue;
+        }
+
+        $refundLog = sprintf('Associated booking #%d was cancelled. Automatic refund initiated.', $bookingId);
+        mphb_toss_write_log("Attempting Toss refund for Payment ID: {$payment->getId()}. Amount: {$refundAmount}. Log: {$refundLog}", $log_context);
+
+        list($success, $message) = mphb_toss_refund($payment, $refundAmount, $refundLog);
+
+        if ($success) {
+            mphb_toss_write_log("Successfully processed Toss refund for Payment ID: {$payment->getId()}. Message: {$message}", $log_context);
+        } else {
+            mphb_toss_write_log("Failed to process Toss refund for Payment ID: {$payment->getId()}. Error: {$message}", $log_context . '_Error');
+            // Consider additional admin notification for failed automated refunds
+        }
     }
 }
