@@ -34,7 +34,7 @@ class TossGlobalSettingsTab {
             'mphb-toss-admin-settings', // 핸들명
             MPHB_TOSS_PAYMENTS_PLUGIN_URL . 'assets/js/admin-toss-settings.js', // 파일 경로
             ['jquery'], // 의존성
-            MPHB_TOSS_PAYMENTS_VERSION, // 버전
+            time(), // 버전
             true // 푸터에 로드
         );
     }
