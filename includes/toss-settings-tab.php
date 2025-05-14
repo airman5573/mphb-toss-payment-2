@@ -26,9 +26,6 @@ class TossGlobalSettingsTab {
         $page_param = $_GET['page'] ?? ''; // 'page' GET 파라미터
         $tab_param  = $_GET['tab'] ?? '';   // 'tab' GET 파라미터
 
-        var_dump($page_param);
-        var_dump($tab_param);
-
         if ($page_param !== 'mphb_settings' || $tab_param !== self::TAB_ID) {
             return;
         }
