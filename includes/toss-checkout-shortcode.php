@@ -16,7 +16,6 @@ class MPHBTossCallbackUrlGenerator {
             ],
             home_url( '/' )
         );
-        // mphb_toss_write_log("Generated callback URL: {$url} for type: {$callback_type}, gateway: {$gateway_id}", __CLASS__ . '::generate'); // Reduced: URL logged by caller
         return $url;
     }
 }
@@ -35,7 +34,6 @@ class MPHBTossCheckoutDataProvider {
 
     public function __construct( array $request_params ) {
         $this->request_params = $request_params;
-        // mphb_toss_write_log("DataProvider constructed. Request Params: " . print_r($this->request_params, true), __CLASS__ . '::__construct'); // Reduced
     }
 
     public function prepare_data(): bool {
@@ -44,7 +42,7 @@ class MPHBTossCheckoutDataProvider {
         try {
             $this->validate_global_settings();
             $this->extract_and_sanitize_request_params();
-            mphb_toss_write_log("Request params extracted: " . print_r([ // Log key params
+            mphb_toss_write_log("Request params extracted: " . print_r([ 
                 'error_code' => $this->error_code, 'booking_id' => $this->booking_id, 
                 'method' => $this->mphb_gateway_method, 'gateway_id' => $this->mphb_selected_gateway_id
             ], true), $log_context);
@@ -61,7 +59,7 @@ class MPHBTossCheckoutDataProvider {
     }
 
     private function validate_global_settings(): void {
-        if ( empty( \MPHBTOSS\TossGlobalSettingsTab::get_global_client_key() ) ) { // Simplified check
+        if ( empty( \MPHBTOSS\TossGlobalSettingsTab::get_global_client_key() ) ) { 
             $error_msg = __( 'Toss Payments 클라이언트 키가 설정되지 않았습니다. (오류 코드: GCK01)', 'mphb-toss-payments' );
             mphb_toss_write_log("Global settings validation failed: Client key empty.", __CLASS__ . '::validate_global_settings_Error');
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -94,7 +92,7 @@ class MPHBTossCheckoutDataProvider {
     private function load_and_validate_booking(): void {
         $booking_repo  = \MPHB()->getBookingRepository();
         $this->booking = $booking_repo->findById( $this->booking_id );
-        if ( ! $this->booking || $this->booking->getKey() !== $this->booking_key ) { // Simplified check
+        if ( ! $this->booking || $this->booking->getKey() !== $this->booking_key ) { 
             mphb_toss_write_log("Booking validation failed. Requested ID: {$this->booking_id}, Key: {$this->booking_key}. Found: " . ($this->booking ? "ID: {$this->booking->getId()}, Key: {$this->booking->getKey()}" : "Not Found"), __CLASS__ . '::load_and_validate_booking_Error');
             throw new MPHBTossCheckoutException( __( '예약 정보를 찾을 수 없거나 접근 권한이 없습니다.', 'mphb-toss-payments' ) );
         }
@@ -127,7 +125,7 @@ class MPHBTossCheckoutDataProvider {
             }
             throw new MPHBTossCheckoutException( sprintf( __( '선택하신 결제 수단(%s)을 현재 사용할 수 없습니다.', 'mphb-toss-payments' ), esc_html( $this->mphb_selected_gateway_id ) ) );
         }
-        if ( ! $this->selected_toss_gateway_object->isEnabled() ) { // isActive includes isEnabled checks from parent
+        if ( ! $this->selected_toss_gateway_object->isEnabled() ) { 
              mphb_toss_write_log("Gateway validation failed: Gateway {$this->mphb_selected_gateway_id} is not enabled/active.", __CLASS__ . '::load_and_validate_gateway_Error');
             throw new MPHBTossCheckoutException( sprintf( __( '%s 결제 수단이 현재 비활성화되어 있습니다.', 'mphb-toss-payments' ), $this->selected_toss_gateway_object->getTitleForUser() ) );
         }
@@ -159,12 +157,10 @@ class MPHBTossPaymentParamsBuilder {
         $this->booking_key = $booking_key; $this->booking_id = $booking_id;
         $this->selected_gateway_object = $selected_gateway_object;
         $this->selected_gateway_id = $selected_gateway_object->getId();
-        // mphb_toss_write_log("PaymentParamsBuilder constructed.", __CLASS__ . '::__construct'); // Reduced
     }
 
     public function build(): array {
         $log_context = __CLASS__ . '::build';
-        // mphb_toss_write_log("Building payment params.", $log_context); // Reduced
         $customer = $this->booking_entity->getCustomer();
         $customerEmail = $customer && $customer->getEmail() ? sanitize_email( $customer->getEmail() ) : '';
         $customerName  = $customer && ($customer->getFirstName() || $customer->getLastName()) ? sanitize_text_field( trim( $customer->getFirstName() . ' ' . $customer->getLastName() ) ) : '';
@@ -176,7 +172,7 @@ class MPHBTossPaymentParamsBuilder {
         $tossCustomerKey = $this->generate_customer_key();
         $productName = $this->generate_order_name();
         $orderId = $this->generate_order_id();
-        $clientKey = $this->get_global_client_key(); // Throws exception if empty
+        $clientKey = $this->get_global_client_key(); 
 
         $params = [
             'client_key'           => $clientKey, 
@@ -192,7 +188,6 @@ class MPHBTossPaymentParamsBuilder {
             'selected_gateway_id'  => $this->selected_gateway_id,
             'toss_method'          => $this->selected_gateway_object->getTossMethod(),
         ];
-        // Add specific flags
         if ($this->selected_gateway_id === \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX . 'foreign_card') $params['js_flags_is_foreign_card_only'] = true;
         if ($this->selected_gateway_id === \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX . 'escrow_bank') $params['js_flags_is_escrow_transfer'] = true;
         if ($this->selected_gateway_id === \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX . 'vbank') {
@@ -263,7 +258,6 @@ class MPHBTossCheckoutShortcodeHandler {
     private array $request_params;
     public function __construct( array $request_params ) {
         $this->request_params = $request_params;
-        // mphb_toss_write_log("ShortcodeHandler constructed.", __CLASS__ . '::__construct'); // Reduced
     }
 
     public function render(): string {
@@ -317,12 +311,15 @@ class MPHBTossCheckoutShortcodeHandler {
 }
 
 class MPHBTossCheckoutView {
-    private MPHBTossCheckoutDataProvider $data_provider; private array $payment_params;
-    private string $check_in_date_formatted = ''; private string $check_out_date_formatted = '';
+    private MPHBTossCheckoutDataProvider $data_provider; 
+    private array $payment_params;
+    private string $check_in_date_formatted = ''; 
+    private string $check_out_date_formatted = '';
     private string $reserved_rooms_details_html = '';
 
     public function __construct( MPHBTossCheckoutDataProvider $data_provider, array $payment_params ) {
-        $this->data_provider  = $data_provider; $this->payment_params = $payment_params;
+        $this->data_provider  = $data_provider; 
+        $this->payment_params = $payment_params;
         $this->prepare_additional_view_data();
         mphb_toss_write_log('CheckoutView constructed. JS Payment Params (client_key redacted for this log, full in JS block): ' . print_r(array_merge($this->payment_params, ['client_key'=>'[REDACTED]']), true), __CLASS__ . '::__construct');
         function_exists('ray') && ray('체크아웃 뷰 초기화됨. JS용 결제 파라미터:', $this->payment_params)->blue()->label('CheckoutView');
@@ -331,27 +328,41 @@ class MPHBTossCheckoutView {
     private function prepare_additional_view_data(): void {
         $booking = $this->data_provider->get_booking();
         $checkInDateObj = $booking->getCheckInDate();
-        if ( $checkInDateObj instanceof \DateTimeInterface ) $this->check_in_date_formatted = date_i18n( get_option( 'date_format' ), $checkInDateObj->getTimestamp() );
-        elseif ( is_string( $checkInDateObj ) && ! empty( $checkInDateObj ) ) {
-            try { $dt = new \DateTime($checkInDateObj, wp_timezone()); $this->check_in_date_formatted = date_i18n(get_option('date_format'), $dt->getTimestamp()); } 
-            catch (\Exception $e){ $this->check_in_date_formatted = $checkInDateObj; }
+        if ( $checkInDateObj instanceof \DateTimeInterface ) {
+            $this->check_in_date_formatted = date_i18n( get_option( 'date_format' ), $checkInDateObj->getTimestamp() );
+        } elseif ( is_string( $checkInDateObj ) && ! empty( $checkInDateObj ) ) {
+            try { 
+                $dt = new \DateTime($checkInDateObj, wp_timezone()); 
+                $this->check_in_date_formatted = date_i18n(get_option('date_format'), $dt->getTimestamp()); 
+            } catch (\Exception $e){ 
+                $this->check_in_date_formatted = $checkInDateObj; 
+            }
         }
         $checkOutDateObj = $booking->getCheckOutDate();
-        if ( $checkOutDateObj instanceof \DateTimeInterface ) $this->check_out_date_formatted = date_i18n( get_option( 'date_format' ), $checkOutDateObj->getTimestamp() );
-        elseif ( is_string( $checkOutDateObj ) && ! empty( $checkOutDateObj ) ) {
-             try { $dt = new \DateTime($checkOutDateObj, wp_timezone()); $this->check_out_date_formatted = date_i18n(get_option('date_format'), $dt->getTimestamp()); } 
-             catch (\Exception $e){ $this->check_out_date_formatted = $checkOutDateObj; }
+        if ( $checkOutDateObj instanceof \DateTimeInterface ) {
+            $this->check_out_date_formatted = date_i18n( get_option( 'date_format' ), $checkOutDateObj->getTimestamp() );
+        } elseif ( is_string( $checkOutDateObj ) && ! empty( $checkOutDateObj ) ) {
+             try { 
+                $dt = new \DateTime($checkOutDateObj, wp_timezone()); 
+                $this->check_out_date_formatted = date_i18n(get_option('date_format'), $dt->getTimestamp()); 
+            } catch (\Exception $e){ 
+                $this->check_out_date_formatted = $checkOutDateObj; 
+            }
         }
         if ( method_exists( $booking, 'getReservedRooms' ) ) {
             $reservedRooms = $booking->getReservedRooms();
             if ( ! empty( $reservedRooms ) ) {
                 $details_list = array_map( function( $reservedRoom ) {
                     if ($reservedRoom instanceof \MPHB\Entities\ReservedRoom) {
-                        $roomType = $reservedRoom->getRoomType(); return $roomType && ($roomType instanceof \MPHB\Entities\RoomType) ? '<li>' . esc_html( $roomType->getTitle() ) . '</li>' : '';
-                    } return '';
+                        $roomType = $reservedRoom->getRoomType(); 
+                        return $roomType && ($roomType instanceof \MPHB\Entities\RoomType) ? '<li>' . esc_html( $roomType->getTitle() ) . '</li>' : '';
+                    } 
+                    return '';
                 }, $reservedRooms );
                 $details_list = array_filter($details_list);
-                if ( ! empty( $details_list ) ) $this->reserved_rooms_details_html = '<ul>' . implode( '', $details_list ) . '</ul>';
+                if ( ! empty( $details_list ) ) {
+                    $this->reserved_rooms_details_html = '<ul>' . implode( '', $details_list ) . '</ul>';
+                }
             }
         }
         if ( empty( $this->reserved_rooms_details_html ) && function_exists( 'mphb_get_reserved_rooms_details_list' ) ) {
@@ -360,26 +371,103 @@ class MPHBTossCheckoutView {
     }
 
     public function render(): string {
-        $booking = $this->data_provider->get_booking(); $payment_entity = $this->data_provider->get_payment_entity();
-        $selected_toss_gateway_object = $this->data_provider->get_selected_toss_gateway_object();
-        $error_code = $this->data_provider->get_error_code(); $error_message = $this->data_provider->get_error_message();
-        $payment_params_for_js = $this->payment_params;
+        $booking                        = $this->data_provider->get_booking();
+        $payment_entity                 = $this->data_provider->get_payment_entity();
+        $selected_toss_gateway_object   = $this->data_provider->get_selected_toss_gateway_object();
+        $error_code                     = $this->data_provider->get_error_code();
+        $error_message                  = $this->data_provider->get_error_message();
+        $payment_params_for_js          = $this->payment_params;
 
         ob_start();
         ?>
-        <style> /* Styles as provided */ </style>
+        <style>
+            .page-header .entry-title { display: none !important; }
+            .mphb_sc_checkout-form { font-family: "Pretendard", Sans-serif; font-size: 18px; font-weight: 300; line-height: 1.5; color: rgb(134, 142, 150); min-height: 60vh; display: flex; flex-direction: column; justify-content: center; max-width: 900px; margin: 0 auto; }
+            .mphb_sc_checkout-form * { color: rgb(134, 142, 150); box-sizing: border-box; }
+            .mphb_sc_checkout-form h3 { margin-block-start: 0.5rem; margin-block-end: 1rem; font-weight: 700; line-height: 1.2; font-size: 1.625rem; margin-bottom: .91em; }
+            .mphb_sc_checkout-form p { margin-block-start: 0; margin-block-end: 0.9rem; font-weight: normal; margin: 0 0 1em 0; }
+            .mphb_sc_checkout-form ul { list-style: none; margin: 0; padding: 0; }
+            .mphb_sc_checkout-form li { margin-block-start: 0; margin-block-end: 0; }
+            .mphb_sc_checkout-form a { text-decoration: none; }
+            .mphb_sc_checkout-form > .mphb-checkout-section:not(:first-of-type),
+            .mphb_sc_checkout-form > .mphb-booking-details-section + .mphb-checkout-payment-section { margin-top: 2em; }
+            .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; }
+            .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li { flex: 1 0 100%; padding-left: 0; margin: 0 0 0.5em 0; }
+            @media screen and (min-width: 768px) {
+                .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li { flex: 1 0 auto; margin: 0 1.5em 1.5em 0; padding-right: 1.5em; border-right: 1px dashed #d3ced2; }
+                .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li span.label { display: block; font-size: 0.85em; margin-bottom: 0.2em; }
+            }
+            .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li:last-of-type { border-right: none; margin-right: 0; padding-right: 0; }
+            .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details > li span.value { font-weight: bold; }
+            .mphb_sc_checkout-form .mphb-booking-details-section .accommodations { margin-top: 1em; clear: both; }
+            .mphb_sc_checkout-form .mphb-booking-details-section .accommodations-title { display: block; font-weight: 500; margin-bottom: 0.3em; }
+            .mphb_sc_checkout-form .mphb-booking-details-section .accommodations-list { display: block; list-style: none; }
+             .mphb_sc_checkout-form .mphb-booking-details-section .accommodations-list li { list-style: none; }
+            .mphb_sc_checkout-form .mphb-booking-details-section .mphb-booking-details li { list-style: none; }
+            .mphb_sc_checkout-form .mphb-checkout-payment-section { text-align: center; margin-top: 3em; } 
+            #mphb-toss-payment-widget { margin-bottom: 1em; }
+            .mphb_sc_checkout-form .mphb-checkout-terms-wrapper { margin-top: 1em; text-align: center; }
+            #mphb-toss-pay-btn { cursor: pointer; color: white; display: inline-block !important; }
+            #mphb-toss-pay-btn > span { color: white; }
+            #toss-payment-message { margin-top: 15px; min-height: 22px; font-size: 1em; }
+            #toss-payment-message.mphb-error { color: red; font-weight: bold; }
+            #mphb-toss-pay-spinner { display: none; vertical-align: middle; margin-left: 5px; width: 16px; height: 16px; border: 2px solid rgba(0, 0, 0, 0.1); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; }
+            #mphb-toss-pay-btn.mphb-processing #mphb-toss-pay-spinner { display: inline-block; }
+             @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+
         <div class="mphb_sc_checkout-form">
-            <div class="mphb-booking-details-section booking"> /* Details HTML */ </div>
+            <div class="mphb-booking-details-section booking">
+                <h3 class="mphb-booking-details-title"><?php echo esc_html( '예약 상세 정보' ); ?></h3>
+                <ul class="mphb-booking-details">
+                    <li class="booking-number">
+                        <span class="label"><?php echo esc_html( '예약 번호:' ); ?></span>
+                        <span class="value"><?php echo esc_html( $booking->getId() ); ?></span>
+                    </li>
+                    <li class="booking-check-in">
+                        <span class="label"><?php echo esc_html( '체크인:' ); ?></span>
+                        <span class="value"><?php echo esc_html( $this->check_in_date_formatted ); ?></span>
+                    </li>
+                    <li class="booking-check-out">
+                        <span class="label"><?php echo esc_html( '체크아웃:' ); ?></span>
+                        <span class="value"><?php echo esc_html( $this->check_out_date_formatted ); ?></span>
+                    </li>
+                    <li class="booking-price">
+                        <span class="label"><?php echo esc_html( '총 금액:' ); ?></span>
+                        <span class="value"><?php echo mphb_format_price( $payment_entity->getAmount() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+                    </li>
+                    <li class="booking-status">
+                        <span class="label"><?php echo esc_html( '예약 상태:' ); ?></span>
+                        <span class="value"><?php echo esc_html( mphb_get_status_label( $booking->getStatus() ) ); ?></span>
+                    </li>
+                    <li class="booking-payment-method">
+                        <span class="label"><?php echo esc_html( '결제수단:' ); ?></span>
+                        <span class="value"><?php echo esc_html( $selected_toss_gateway_object->getTitleForUser() ); ?></span>
+                    </li>
+                </ul>
+                <?php if ( ! empty( $this->reserved_rooms_details_html ) ) : ?>
+                    <div class="accommodations">
+                        <span class="accommodations-title"><?php echo esc_html( '숙소 상세 정보:' ); ?></span>
+                        <div class="accommodations-list">
+                            <?php echo wp_kses_post( $this->reserved_rooms_details_html ); ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+
             <div class="mphb-checkout-payment-section">
                 <div class="mphb-checkout-terms-wrapper">
                     <button type="button" id="mphb-toss-pay-btn" class="button mphb-button mphb-confirm-reservation">
                         <span class="button-text"><?php echo esc_html( '결제 진행하기' ); ?></span>
                         <span id="mphb-toss-pay-spinner" class="mphb-loading-spinner"></span>
                     </button>
-                    <p id="toss-payment-message" class="<?php if ( $error_code || $error_message ) echo 'mphb-error'; ?>"><?php echo $error_message ? esc_html( $error_message ) : ''; ?></p>
+                    <p id="toss-payment-message" class="<?php if ( $error_code || $error_message ) { echo 'mphb-error'; } ?>">
+                        <?php echo $error_message ? esc_html( $error_message ) : ''; ?>
+                    </p>
                 </div>
             </div>
         </div>
+
         <script src="https://js.tosspayments.com/v2/standard"></script>
         <script>
             jQuery(function ($) {
@@ -387,24 +475,31 @@ class MPHBTossCheckoutView {
                 if (window.console && paymentParamsJS) { 
                     console.log('MPHB 토스 체크아웃 JS 파라미터 (View Render):', JSON.parse(JSON.stringify(paymentParamsJS))); 
                 }
-                const payButton = $('#mphb-toss-pay-btn'); const payButtonText = payButton.find('.button-text'); 
-                const payButtonSpinner = $('#mphb-toss-pay-spinner'); const messageArea = $('#toss-payment-message');
-                let isProcessing = false; payButton.prop('disabled', true); 
+                const payButton = $('#mphb-toss-pay-btn'); 
+                const payButtonText = payButton.find('.button-text'); 
+                const payButtonSpinner = $('#mphb-toss-pay-spinner'); 
+                const messageArea = $('#toss-payment-message');
+                let isProcessing = false; 
+                payButton.prop('disabled', true); 
 
                 if (typeof TossPayments !== 'function') {
                     messageArea.text('<?php echo esc_js( 'TossPayments JS SDK 로드 실패.' ); ?>').addClass('mphb-error');
-                    payButton.prop('disabled', true).hide(); console.error("TossPayments SDK not loaded."); return;
+                    payButton.prop('disabled', true).hide(); 
+                    console.error("TossPayments SDK not loaded."); 
+                    return;
                 }
                 if (!paymentParamsJS || !paymentParamsJS.client_key) {
                     console.error("MPHB 토스 체크아웃: client_key 누락.", paymentParamsJS);
                     messageArea.text('<?php echo esc_js( '결제 초기화 오류 (JSEP01).' ); ?>').addClass('mphb-error');
-                    payButton.prop('disabled', true).hide(); return;
+                    payButton.prop('disabled', true).hide(); 
+                    return;
                 }
                 const tossMethodForSDK = paymentParamsJS.toss_method;
                 if (!tossMethodForSDK) {
                     console.error("MPHB 토스 체크아웃: toss_method 누락.");
                     messageArea.text('<?php echo esc_js( '결제 수단 정보 누락 (JSEP02).' ); ?>').addClass('mphb-error');
-                    payButton.prop('disabled', true).hide(); return;
+                    payButton.prop('disabled', true).hide(); 
+                    return;
                 }
                 try {
                     const toss = TossPayments(paymentParamsJS.client_key);
@@ -412,32 +507,71 @@ class MPHBTossCheckoutView {
                     console.log("TossPayments SDK initialized. CustomerKey: " + (paymentParamsJS.customer_key || 'N/A'));
 
                     function requestTossPayment() {
-                        if (isProcessing) return; isProcessing = true;
-                        payButton.prop('disabled', true).addClass('mphb-processing'); payButtonText.text('<?php echo esc_js( '결제 처리 중...' ); ?>'); 
-                        payButtonSpinner.show(); messageArea.text('').removeClass('mphb-error mphb-success');
+                        if (isProcessing) return; 
+                        isProcessing = true;
+                        payButton.prop('disabled', true).addClass('mphb-processing'); 
+                        payButtonText.text('<?php echo esc_js( '결제 처리 중...' ); ?>'); 
+                        payButtonSpinner.show(); 
+                        messageArea.text('').removeClass('mphb-error mphb-success');
                         console.log('Requesting Toss payment. Method:', tossMethodForSDK);
                         let paymentDataPayload = {
-                            amount: { currency: "KRW", value: parseFloat(paymentParamsJS.amount) }, orderId: paymentParamsJS.order_id,
-                            orderName: paymentParamsJS.order_name, successUrl: paymentParamsJS.success_url, failUrl: paymentParamsJS.fail_url,
-                            customerEmail: paymentParamsJS.customer_email, customerName: paymentParamsJS.customer_name, customerMobilePhone: paymentParamsJS.customer_mobile_phone,
+                            amount: { currency: "KRW", value: parseFloat(paymentParamsJS.amount) }, 
+                            orderId: paymentParamsJS.order_id,
+                            orderName: paymentParamsJS.order_name, 
+                            successUrl: paymentParamsJS.success_url, 
+                            failUrl: paymentParamsJS.fail_url,
+                            customerEmail: paymentParamsJS.customer_email, 
+                            customerName: paymentParamsJS.customer_name, 
+                            customerMobilePhone: paymentParamsJS.customer_mobile_phone,
                         };
                         if (tossMethodForSDK === "CARD") {
-                            paymentDataPayload.card = { useEscrow: false, flowMode: "DEFAULT", useCardPoint: paymentParamsJS.js_flags_use_card_point || false, useAppCardOnly: paymentParamsJS.js_flags_use_app_card_only || false, useInternationalCardOnly: paymentParamsJS.js_flags_is_foreign_card_only === true };
+                            paymentDataPayload.card = { 
+                                useEscrow: false, 
+                                flowMode: "DEFAULT", 
+                                useCardPoint: paymentParamsJS.js_flags_use_card_point || false, 
+                                useAppCardOnly: paymentParamsJS.js_flags_use_app_card_only || false, 
+                                useInternationalCardOnly: paymentParamsJS.js_flags_is_foreign_card_only === true 
+                            };
                             if (paymentParamsJS.js_easy_pay_provider_code) {
                                 paymentDataPayload.card.easyPay = paymentParamsJS.js_easy_pay_provider_code;
-                                if (paymentParamsJS.js_preferred_flow_mode) paymentDataPayload.card.flowMode = paymentParamsJS.js_preferred_flow_mode;
+                                if (paymentParamsJS.js_preferred_flow_mode) {
+                                    paymentDataPayload.card.flowMode = paymentParamsJS.js_preferred_flow_mode;
+                                }
                                 console.log('EasyPay options for CARD:', paymentDataPayload.card);
                             }
-                        } else if (tossMethodForSDK === "TRANSFER") paymentDataPayload.transfer = { useEscrow: paymentParamsJS.js_flags_is_escrow_transfer === true };
-                        else if (tossMethodForSDK === "VIRTUAL_ACCOUNT") paymentDataPayload.virtualAccount = { cashReceipt: { type: paymentParamsJS.js_flags_vbank_cash_receipt_type || '미발행' }, useEscrow: false };
+                        } else if (tossMethodForSDK === "TRANSFER") {
+                            paymentDataPayload.transfer = { 
+                                useEscrow: paymentParamsJS.js_flags_is_escrow_transfer === true,
+                            };
+                        } else if (tossMethodForSDK === "VIRTUAL_ACCOUNT") {
+                            paymentDataPayload.virtualAccount = { 
+                                cashReceipt: { 
+                                    type: paymentParamsJS.js_flags_vbank_cash_receipt_type || '미발행' 
+                                }, 
+                                useEscrow: false 
+                            };
+                        }
                         console.log('Final Toss payload:', JSON.parse(JSON.stringify(paymentDataPayload)));
                         paymentWidgetInstance.requestPayment({ method: tossMethodForSDK, ...paymentDataPayload })
-                            .then(function(response) { console.log("TossPayments success (redirecting):", response); messageArea.text('<?php echo esc_js( '결제 페이지로 이동합니다...' ); ?>').addClass('mphb-success'); })
-                            .catch(function(error) { console.error("TossPayments SDK error:", error); messageArea.text(error.message || '<?php echo esc_js( '결제 오류 발생.' ); ?>').addClass('mphb-error'); })
-                            .finally(function() { isProcessing = false; payButton.prop('disabled', false).removeClass('mphb-processing'); payButtonText.text('<?php echo esc_js( '결제 진행하기' ); ?>'); console.log("Toss processing finished."); });
+                            .then(function(response) { 
+                                console.log("TossPayments success (redirecting):", response); 
+                                messageArea.text('<?php echo esc_js( '결제 페이지로 이동합니다...' ); ?>').addClass('mphb-success'); 
+                            })
+                            .catch(function(error) { 
+                                console.error("TossPayments SDK error:", error); 
+                                messageArea.text(error.message || '<?php echo esc_js( '결제 오류 발생.' ); ?>').addClass('mphb-error'); 
+                            })
+                            .finally(function() { 
+                                isProcessing = false; 
+                                payButton.prop('disabled', false).removeClass('mphb-processing'); 
+                                payButtonText.text('<?php echo esc_js( '결제 진행하기' ); ?>'); 
+                                console.log("Toss processing finished."); 
+                            });
                     }
-                    payButton.prop('disabled', false).show(); payButton.on('click', requestTossPayment);
-                    console.log("Auto-triggering Toss payment."); requestTossPayment();
+                    payButton.prop('disabled', false).show(); 
+                    payButton.on('click', requestTossPayment);
+                    console.log("Auto-triggering Toss payment."); 
+                    requestTossPayment();
                 } catch (sdkError) {
                     console.error("TossPayments SDK init error:", sdkError);
                     messageArea.text('<?php echo esc_js( 'SDK 초기화 오류 (JSEI01).' ); ?>').addClass('mphb-error');
@@ -446,56 +580,6 @@ class MPHBTossCheckoutView {
             });
         </script>
         <?php
-        // Style and HTML for booking details (as provided by user, can be shortened in output for brevity if needed)
-        // The crucial part is the JS block above.
-        // For brevity, I will assume the HTML structure is the same as the one provided by the user.
-        // Ensure the structure from the user's provided `MPHBTossCheckoutView::render` is copied here if it's significantly different from a placeholder.
-        // This includes the .mphb_sc_checkout-form, .mphb-booking-details-section, etc.
-        // For this example, let's assume the structure is complex and should be retained from the user's input.
-        // The provided PHP for HTML structure inside the ob_start() / ob_get_clean() block should be here.
-        // ... (The full HTML structure from the original MPHBTossCheckoutView::render method) ...
-        $html_structure = <<<'HTML'
-        <div class="mphb_sc_checkout-form">
-            <div class="mphb-booking-details-section booking">
-                <h3 class="mphb-booking-details-title"><?php echo esc_html( '예약 상세 정보' ); ?></h3>
-                <ul class="mphb-booking-details">
-                    <li class="booking-number"><span class="label"><?php echo esc_html( '예약 번호:' ); ?></span><span class="value"><?php echo esc_html( $booking->getId() ); ?></span></li>
-                    <li class="booking-check-in"><span class="label"><?php echo esc_html( '체크인:' ); ?></span><span class="value"><?php echo esc_html( $this->check_in_date_formatted ); ?></span></li>
-                    <li class="booking-check-out"><span class="label"><?php echo esc_html( '체크아웃:' ); ?></span><span class="value"><?php echo esc_html( $this->check_out_date_formatted ); ?></span></li>
-                    <li class="booking-price"><span class="label"><?php echo esc_html( '총 금액:' ); ?></span><span class="value"><?php echo mphb_format_price( $payment_entity->getAmount() ); ?></span></li>
-                    <li class="booking-status"><span class="label"><?php echo esc_html( '예약 상태:' ); ?></span><span class="value"><?php echo esc_html( mphb_get_status_label( $booking->getStatus() ) ); ?></span></li>
-                    <li class="booking-payment-method"><span class="label"><?php echo esc_html( '결제수단:' ); ?></span><span class="value"><?php echo esc_html( $selected_toss_gateway_object->getTitleForUser() ); ?></span></li>
-                </ul>
-                <?php if ( ! empty( $this->reserved_rooms_details_html ) ) : ?>
-                    <div class="accommodations">
-                        <span class="accommodations-title"><?php echo esc_html( '숙소 상세 정보:' ); ?></span>
-                        <div class="accommodations-list"><?php echo wp_kses_post( $this->reserved_rooms_details_html ); ?></div>
-                    </div>
-                <?php endif; ?>
-            </div>
-            <div class="mphb-checkout-payment-section">
-                <div class="mphb-checkout-terms-wrapper">
-                    <button type="button" id="mphb-toss-pay-btn" class="button mphb-button mphb-confirm-reservation">
-                        <span class="button-text"><?php echo esc_html( '결제 진행하기' ); ?></span>
-                        <span id="mphb-toss-pay-spinner" class="mphb-loading-spinner"></span>
-                    </button>
-                    <p id="toss-payment-message" class="<?php if ( $error_code || $error_message ) { echo 'mphb-error'; } ?>"><?php echo $error_message ? esc_html( $error_message ) : ''; ?></p>
-                </div>
-            </div>
-        </div>
-HTML;
-        // This eval is a placeholder for the actual PHP execution of the HTML structure.
-        // In a real scenario, the PHP variables $booking, $this->check_in_date_formatted etc. would be directly accessible.
-        // For the purpose of this output, we assume the HTML is generated as above.
-        // Directly echo the PHP block that generates HTML.
-        // For simplicity, I'm keeping the JS separate from this eval.
-        // The PHP variables like $booking, $payment_entity etc. are available in this scope.
-        // So the HTML part from user's code can be directly used.
-        // The `ob_start()` at the beginning of this method captures all echo.
-        // This includes the <style> block, the main <div> structure, and the <script> block.
-        // The eval part is not needed if the HTML is directly outputted within the ob_start/ob_get_clean block.
-        // The structure provided by the user already does this.
-
         return ob_get_clean();
     }
 }
