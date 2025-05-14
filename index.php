@@ -80,6 +80,9 @@ add_action('plugins_loaded', function () {
         mphb_toss_write_log('TossGatewayBase class NOT FOUND for static callback.', 'PluginInitialization_Error');
     }
 
+    // 4. Hook into MPHB payment cancelled action to attempt Toss refund
+    add_action( 'mphb_payment_cancelled', 'mphb_toss_handle_mphb_payment_cancelled', 10, 1 );
+
 }, 9);
 
 
@@ -89,3 +92,48 @@ add_filter('mphb_gateway_has_sandbox', function ($isSandbox, $gatewayId) {
     }
     return $isSandbox;
 }, 10, 2);
+
+
+/**
+ * Handles the MPHB payment cancelled action to attempt a refund via Toss Payments.
+ *
+ * @param \MPHB\Entities\Payment $payment The payment object that was cancelled.
+ */
+function mphb_toss_handle_mphb_payment_cancelled( \MPHB\Entities\Payment $payment ) {
+    $log_context = 'mphb_toss_handle_mphb_payment_cancelled';
+    mphb_toss_write_log("MPHB Payment Cancelled Hook Triggered. Payment ID: " . $payment->getId(), $log_context);
+
+    // Check if the payment was made through a Toss gateway
+    if (strpos($payment->getGatewayId(), \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX) !== 0) {
+        mphb_toss_write_log("Payment ID: " . $payment->getId() . " was not made through Toss Payments. Gateway: " . $payment->getGatewayId() . ". No Toss refund attempted.", $log_context);
+        return;
+    }
+
+    // Check if there's a transaction ID (Toss PaymentKey)
+    $tossPaymentKey = $payment->getTransactionId();
+    if (empty($tossPaymentKey)) {
+        mphb_toss_write_log("Payment ID: " . $payment->getId() . " does not have a Toss PaymentKey (Transaction ID). No Toss refund attempted.", $log_context);
+        return;
+    }
+    
+    // It's generally assumed that if a payment is "cancelled" in MPHB, a full refund is intended.
+    $refundAmount = $payment->getAmount();
+
+    mphb_toss_write_log("Attempting Toss refund for cancelled MPHB Payment ID: " . $payment->getId() . ". Amount: " . $refundAmount, $log_context);
+
+    // Call the existing refund function
+    // The mphb_toss_refund function already handles API calls, logging, and updating MPHB payment/booking status.
+    list($success, $message) = mphb_toss_refund($refundAmount, $payment->getId(), 'MPHB 결제 취소로 인한 자동 환불 처리');
+
+    if ($success) {
+        mphb_toss_write_log("Successfully processed Toss refund for MPHB Payment ID: " . $payment->getId() . ". Message: " . $message, $log_context);
+        // Optionally, add an admin notice if needed, though mphb_toss_refund might imply changes already.
+        // Admin notices are tricky for background actions like this unless it's a direct admin action.
+    } else {
+        mphb_toss_write_log("Failed to process Toss refund for MPHB Payment ID: " . $payment->getId() . ". Error: " . $message, $log_context . '_Error');
+        // Add a persistent admin notice or a different type of log for follow-up if automated refund fails.
+        // For example, store a transient that an admin can see, or send an email.
+        // Consider that this hook can be triggered by various actions, not just direct admin input.
+        // For now, relying on the detailed file log.
+    }
+}
