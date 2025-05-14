@@ -80,9 +80,6 @@ add_action('plugins_loaded', function () {
         mphb_toss_write_log('TossGatewayBase class NOT FOUND for static callback.', 'PluginInitialization_Error');
     }
 
-    // 4. Hook into MPHB payment cancelled action to attempt Toss refund
-    add_action( 'mphb_payment_cancelled', 'mphb_toss_handle_mphb_payment_cancelled', 10, 1 );
-
 }, 9);
 
 
@@ -99,6 +96,7 @@ add_filter('mphb_gateway_has_sandbox', function ($isSandbox, $gatewayId) {
  *
  * @param \MPHB\Entities\Payment $payment The payment object that was cancelled.
  */
+add_action( 'mphb_payment_cancelled', 'mphb_toss_handle_mphb_payment_cancelled', 10, 1 );
 function mphb_toss_handle_mphb_payment_cancelled( \MPHB\Entities\Payment $payment ) {
     $log_context = 'mphb_toss_handle_mphb_payment_cancelled';
     mphb_toss_write_log("MPHB Payment Cancelled Hook Triggered. Payment ID: " . $payment->getId(), $log_context);
