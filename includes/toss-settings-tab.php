@@ -23,10 +23,12 @@ class TossGlobalSettingsTab {
      * 관리자 페이지에 필요한 스크립트를 로드합니다.
      */
     public function enqueue_admin_scripts( $hook_suffix ) {
-        var_dump("enqueue_admin_scripts");
-        exit;
         $page_param = $_GET['page'] ?? ''; // 'page' GET 파라미터
         $tab_param  = $_GET['tab'] ?? '';   // 'tab' GET 파라미터
+
+        var_dump($page_param);
+        var_dump($tab_param);
+        exit;
 
         if ($page_param !== 'mphb_settings' || $tab_param !== self::TAB_ID) {
             return;
