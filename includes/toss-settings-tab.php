@@ -28,7 +28,6 @@ class TossGlobalSettingsTab {
 
         var_dump($page_param);
         var_dump($tab_param);
-        exit;
 
         if ($page_param !== 'mphb_settings' || $tab_param !== self::TAB_ID) {
             return;
