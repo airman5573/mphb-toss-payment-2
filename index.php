@@ -5,7 +5,7 @@
  * Description:       MotoPress 호텔 예약 플러그인(MPHB)에 토스페이먼츠 결제 시스템을 연동합니다. 카드, 계좌이체, 가상계좌 및 다양한 간편결제를 지원합니다.
  * Version:           1.0.0
  * Requires at least: 6.2 (플러그인이 정상 작동하는 최소 워드프레스 버전)
- * Requires PHP:      8.1 (플러그인이 정상 작동하는 최소 PHP 버전)
+ * Requires PHP:      7.4 (플러그인이 정상 작동하는 최소 PHP 버전)
  * Author:            Shoplic
  * Author URI:        https://shoplic.kr
  * License:           GPL v2 or later
