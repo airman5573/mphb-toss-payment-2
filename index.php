@@ -1,7 +1,19 @@
 <?php
 /**
- * 플러그인 이름:       MPHB Toss Payments Gateway
- * ... (플러그인 설명, 버전 등의 기타 정보는 여기에 위치합니다)
+ * Plugin Name:       MPHB 토스페이먼츠 게이트웨이
+ * Plugin URI:        https://shoplic.kr/ (플러그인 정보 페이지 주소)
+ * Description:       MotoPress 호텔 예약 플러그인(MPHB)에 토스페이먼츠 결제 시스템을 연동합니다. 카드, 계좌이체, 가상계좌 및 다양한 간편결제를 지원합니다.
+ * Version:           1.0.0
+ * Requires at least: 6.2 (플러그인이 정상 작동하는 최소 워드프레스 버전)
+ * Requires PHP:      8.1 (플러그인이 정상 작동하는 최소 PHP 버전)
+ * Author:            Shoplic
+ * Author URI:        https://shoplic.kr
+ * License:           GPL v2 or later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       mphb-toss-payments
+ * Domain Path:       /languages
+ *
+ * @package           MPHB_Toss_Payments
  */
 
 // 워드프레스 핵심 파일(WPINC)이 정의되지 않은 경우, 즉 워드프레스를 통해 직접 실행된 것이 아니라면 접근을 차단합니다.
