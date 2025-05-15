@@ -117,37 +117,11 @@ function mphb_toss_handle_booking_cancelled_hook( \MPHB\Entities\Booking $bookin
     mphb_toss_write_log("Booking ID: {$bookingId} was cancelled (via mphb_booking_cancelled hook). Attempting to find and refund associated Toss payments.", $log_context);
 
     // --- 수정된 결제 정보 가져오기 시작 ---
-    /** @var \MPHB\Entities\Payment[] $payments 예약과 관련된 결제 객체 배열 */
-    $payments = [];
     $paymentRepository = MPHB()->getPaymentRepository(); // MPHB 결제 저장소 인스턴스 가져오기
+    
+    /** @var \MPHB\Entities\Payment[] $payments 예약과 관련된 결제 객체 배열 */
+    $payments = $paymentRepository->findAll(array('booking_id' => $bookingId));
 
-    if ($paymentRepository && method_exists($paymentRepository, 'findAll')) {
-        // PaymentRepository의 findAll 메소드를 사용하여 booking_id로 결제 정보를 검색합니다.
-        $payments = $paymentRepository->findAll(array('booking_id' => $bookingId));
-    } else {
-        // PaymentRepository 또는 findAll 메소드를 사용할 수 없는 경우의 대체 로직 (거의 발생하지 않음)
-        mphb_toss_write_log("MPHB PaymentRepository or findAll method not available. Falling back to get_posts.", $log_context . '_Error');
-        $payment_args = array(
-            'post_type'      => MPHB()->postTypes()->payment()->getPostType(), // 결제 게시물 타입
-            'posts_per_page' => -1, // 모든 결제 가져오기
-            'meta_query'     => array( // 메타 쿼리
-                array(
-                    'key'   => '_mphb_booking_id', // 예약 ID 메타 키
-                    'value' => $bookingId,         // 현재 예약 ID
-                ),
-            ),
-            'fields'         => 'ids', // ID만 가져오기
-        );
-        $payment_ids = get_posts($payment_args); // 결제 ID 목록 가져오기
-        if (!empty($payment_ids) && $paymentRepository) { // 결제 ID가 있고, 결제 저장소가 유효한 경우
-            foreach ($payment_ids as $payment_id) {
-                $payment_obj = $paymentRepository->findById($payment_id); // ID로 결제 객체 찾기
-                if ($payment_obj) {
-                    $payments[] = $payment_obj; // 결제 객체 배열에 추가
-                }
-            }
-        }
-    }
     // --- 수정된 결제 정보 가져오기 끝 ---
 
     if (empty($payments)) { // 관련된 결제가 없는 경우
