@@ -191,7 +191,6 @@ class MPHBTossPaymentParamsBuilder {
         if ($this->selected_gateway_id === \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX . 'foreign_card') $params['js_flags_is_foreign_card_only'] = true;
         if ($this->selected_gateway_id === \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX . 'escrow_bank') $params['js_flags_is_escrow_transfer'] = true;
         if ($this->selected_gateway_id === \MPHBTOSS\Gateways\TossGatewayBase::MPHB_GATEWAY_ID_PREFIX . 'vbank') {
-            function_exists('ray') && ray('$this->selected_gateway_object', $this->selected_gateway_object)->blue();
             $params['js_flags_vbank_cash_receipt_type'] = $this->selected_gateway_object->get_gateway_option('cash_receipt_type', '미발행');
         }
         if ($this->selected_gateway_object->getTossMethod() === 'CARD') {
@@ -263,7 +262,6 @@ class MPHBTossCheckoutShortcodeHandler {
     public function render(): string {
         $log_context = __CLASS__ . '::render';
         mphb_toss_write_log("ShortcodeHandler render process started.", $log_context);
-        function_exists('ray') && ray('MPHBTossCheckoutShortcodeHandler->render() called. Request Params:', $this->request_params)->label('[ShortcodeHandler]')->blue();
         ob_start();
         try {
             $data_provider = new MPHBTossCheckoutDataProvider( $this->request_params );
@@ -278,12 +276,10 @@ class MPHBTossCheckoutShortcodeHandler {
             echo $view_renderer->render(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         } catch ( MPHBTossCheckoutException $e ) {
             mphb_toss_write_log("MPHBTossCheckoutException in ShortcodeHandler: " . $e->getMessage(), $log_context . '_Error');
-            function_exists('ray') && ray('MPHBTossCheckoutException in ShortcodeHandler:', $e->getMessage())->label('[ShortcodeHandler]')->red();
             $this->render_error_message( $e->getMessage() );
         } catch ( \Exception $e ) {
             mphb_toss_write_log("Generic Exception in ShortcodeHandler: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString(), $log_context . '_Error');
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) error_log( '[MPHB Toss] Uncaught Exception in ShortcodeHandler: ' . $e->getMessage() . "\nStack Trace:\n" . $e->getTraceAsString() );
-            function_exists('ray') && ray('Generic Exception in ShortcodeHandler:', $e->getMessage(), $e->getTraceAsString())->label('[ShortcodeHandler]')->red();
             $this->render_error_message( __( 'An unknown error occurred.', 'mphb-toss-payments' ) . ' (Code: GEN01)' );
         }
         $output = ob_get_clean();
@@ -322,7 +318,6 @@ class MPHBTossCheckoutView {
         $this->payment_params = $payment_params;
         $this->prepare_additional_view_data();
         mphb_toss_write_log('CheckoutView constructed. JS Payment Params (client_key redacted for this log, full in JS block): ' . print_r(array_merge($this->payment_params, ['client_key'=>'[REDACTED]']), true), __CLASS__ . '::__construct');
-        function_exists('ray') && ray('체크아웃 뷰 초기화됨. JS용 결제 파라미터:', $this->payment_params)->blue()->label('CheckoutView');
     }
     
     private function prepare_additional_view_data(): void {

@@ -69,7 +69,7 @@ class TossAPI {
         if (is_wp_error($response)) {
             $error_message = $response->get_error_message();
             mphb_toss_write_log("API WP_Error: " . $error_message, $log_context . '_Error');
-            if ($this->isDebug && function_exists('ray')) { ray('[TossAPI::request] API WP_Error', $error_message); }
+            if (function_exists('ray')) { ray('[TossAPI::request] API WP_Error', $error_message); }
             throw new TossException("API Request Failed: " . $error_message);
         }
 
@@ -87,7 +87,7 @@ class TossAPI {
 
             mphb_toss_write_log("API Response. Code: {$response_code}, Body (sanitized, possibly truncated): " . print_r(mphb_toss_sanitize_log_data($decoded_for_log_display), true), $log_context);
         }
-        if ($this->isDebug && function_exists('ray')) {
+        if (function_exists('ray')) {
             ray('[TossAPI::request] API Response Code', $response_code);
             ray('[TossAPI::request] API Response Body (sanitized for ray)', mphb_toss_sanitize_log_data($decoded_response_for_log));
         }
@@ -97,7 +97,7 @@ class TossAPI {
         if (json_last_error() !== JSON_ERROR_NONE) {
             $json_error = json_last_error_msg();
             mphb_toss_write_log("API JSON Decode Error: {$json_error}. Raw Response (first 500 chars): " . substr($response_body, 0, 500), $log_context . '_Error');
-            if ($this->isDebug && function_exists('ray')) {
+            if (function_exists('ray')) {
                 ray('[TossAPI::request] API JSON Decode Error', $json_error);
                 ray('[TossAPI::request] API Raw Response', $response_body);
             }
@@ -108,7 +108,7 @@ class TossAPI {
             $error_code = $decoded->code;
             $error_message = $decoded->message ?? 'An unknown API error occurred.';
             mphb_toss_write_log("API Error Response from Toss. Code: {$error_code}, Message: {$error_message}", $log_context . '_Error');
-            if ($this->isDebug && function_exists('ray')) { ray('[TossAPI::request] API Error Response (from decoded)', ['Code' => $error_code, 'Message' => $error_message]); }
+            if (function_exists('ray')) { ray('[TossAPI::request] API Error Response (from decoded)', ['Code' => $error_code, 'Message' => $error_message]); }
             throw new TossException("API Error [{$error_code}]: {$error_message}", $error_code);
         }
         
@@ -116,7 +116,7 @@ class TossAPI {
             $error_code = 'HTTP_' . $response_code;
             $error_message = $decoded->message ?? 'HTTP error with no specific Toss error code.';
             mphb_toss_write_log("API HTTP Error. Code: {$error_code}, Message: {$error_message}, Full Decoded: ". print_r($decoded, true), $log_context . '_Error');
-            if ($this->isDebug && function_exists('ray')) { ray('[TossAPI::request] API HTTP Error Response', ['Code' => $error_code, 'Message' => $error_message, 'FullDecoded' => $decoded]); }
+            if (function_exists('ray')) { ray('[TossAPI::request] API HTTP Error Response', ['Code' => $error_code, 'Message' => $error_message, 'FullDecoded' => $decoded]); }
             throw new TossException("API Error [{$error_code}]: {$error_message}", $error_code);
         }
 
