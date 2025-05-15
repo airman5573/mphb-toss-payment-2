@@ -110,4 +110,3 @@ if (!function_exists('mphb_toss_sanitize_log_data')) {
         return $data;
     }
 }
-
