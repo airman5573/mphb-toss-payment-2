@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       Hotel Booking 토스페이먼츠 게이트웨이
+ * Plugin Name:       Hotel Booking 토스페이먼츠 결제
  * Plugin URI:        https://shoplic.kr/ (플러그인 정보 페이지 주소)
  * Description:       MotoPress 호텔 예약 플러그인에 토스페이먼츠 결제 시스템을 연동합니다. 카드, 계좌이체, 가상계좌 및 다양한 간편결제를 지원합니다.
  * Version:           1.0.0
