@@ -519,6 +519,9 @@ class MPHBTossCheckoutView {
                             customerName: paymentParamsJS.customer_name, 
                             // customerMobilePhone: paymentParamsJS.customer_mobile_phone, 굳이 필요하지 않을듯
                         };
+
+                        console.log('paymentDataPayload', paymentDataPayload);
+
                         if (tossMethodForSDK === "CARD") {
                             paymentDataPayload.card = { 
                                 useEscrow: false, 
