@@ -569,7 +569,7 @@ class MPHBTossCheckoutView {
                     payButton.prop('disabled', false).show(); 
                     payButton.on('click', requestTossPayment);
                     console.log("Auto-triggering Toss payment."); 
-                    requestTossPayment();
+                    // requestTossPayment();
                 } catch (sdkError) {
                     console.error("TossPayments SDK init error:", sdkError);
                     messageArea.text('<?php echo esc_js( 'SDK 초기화 오류 (JSEI01).' ); ?>').addClass('mphb-error');
