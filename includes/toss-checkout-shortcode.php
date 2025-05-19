@@ -517,7 +517,7 @@ class MPHBTossCheckoutView {
                             failUrl: paymentParamsJS.fail_url,
                             customerEmail: paymentParamsJS.customer_email, 
                             customerName: paymentParamsJS.customer_name, 
-                            customerMobilePhone: paymentParamsJS.customer_mobile_phone,
+                            // customerMobilePhone: paymentParamsJS.customer_mobile_phone, 굳이 필요하지 않을듯
                         };
                         if (tossMethodForSDK === "CARD") {
                             paymentDataPayload.card = { 
