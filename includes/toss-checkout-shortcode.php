@@ -467,68 +467,72 @@ class MPHBTossCheckoutView {
         <script>
             jQuery(function ($) {
                 const paymentParamsJS = <?php echo wp_json_encode( $payment_params_for_js ); ?>;
-                if (window.console && paymentParamsJS) { 
-                    console.log('MPHB 토스 체크아웃 JS 파라미터 (View Render):', JSON.parse(JSON.stringify(paymentParamsJS))); 
+                if (window.console && paymentParamsJS) {
+                    console.log('MPHB 토스 체크아웃 JS 파라미터 (View Render):', JSON.parse(JSON.stringify(paymentParamsJS)));
                 }
-                const payButton = $('#mphb-toss-pay-btn'); 
-                const payButtonText = payButton.find('.button-text'); 
-                const payButtonSpinner = $('#mphb-toss-pay-spinner'); 
+                const payButton = $('#mphb-toss-pay-btn');
+                const payButtonText = payButton.find('.button-text');
+                const payButtonSpinner = $('#mphb-toss-pay-spinner');
                 const messageArea = $('#toss-payment-message');
-                let isProcessing = false; 
-                payButton.prop('disabled', true); 
+                let isProcessing = false;
+                // Button starts enabled because PHP might have rendered an error,
+                // and the user might still want to see the button (even if non-functional until error is fixed)
+                // Or, if there's no error, it will be auto-clicked or user-clicked.
+                // Let's initially disable it and enable only when ready.
+                payButton.prop('disabled', true).hide(); // Start disabled and hidden
 
                 if (typeof TossPayments !== 'function') {
                     messageArea.text('<?php echo esc_js( 'TossPayments JS SDK 로드 실패.' ); ?>').addClass('mphb-error');
-                    payButton.prop('disabled', true).hide(); 
-                    console.error("TossPayments SDK not loaded."); 
+                    // payButton.prop('disabled', true).hide(); // Already hidden
+                    console.error("TossPayments SDK not loaded.");
                     return;
                 }
                 if (!paymentParamsJS || !paymentParamsJS.client_key) {
                     console.error("MPHB 토스 체크아웃: client_key 누락.", paymentParamsJS);
                     messageArea.text('<?php echo esc_js( '결제 초기화 오류 (JSEP01).' ); ?>').addClass('mphb-error');
-                    payButton.prop('disabled', true).hide(); 
+                    // payButton.prop('disabled', true).hide(); // Already hidden
                     return;
                 }
                 const tossMethodForSDK = paymentParamsJS.toss_method;
                 if (!tossMethodForSDK) {
                     console.error("MPHB 토스 체크아웃: toss_method 누락.");
                     messageArea.text('<?php echo esc_js( '결제 수단 정보 누락 (JSEP02).' ); ?>').addClass('mphb-error');
-                    payButton.prop('disabled', true).hide(); 
+                    // payButton.prop('disabled', true).hide(); // Already hidden
                     return;
                 }
+
                 try {
                     const toss = TossPayments(paymentParamsJS.client_key);
                     const paymentWidgetInstance = toss.payment(paymentParamsJS.customer_key ? { customerKey: paymentParamsJS.customer_key } : {});
                     console.log("TossPayments SDK initialized. CustomerKey: " + (paymentParamsJS.customer_key || 'N/A'));
 
                     function requestTossPayment() {
-                        if (isProcessing) return; 
+                        if (isProcessing) return;
                         isProcessing = true;
-                        payButton.prop('disabled', true).addClass('mphb-processing'); 
-                        payButtonText.text('<?php echo esc_js( '결제 처리 중...' ); ?>'); 
-                        payButtonSpinner.show(); 
-                        messageArea.text('').removeClass('mphb-error mphb-success');
+                        payButton.prop('disabled', true).addClass('mphb-processing');
+                        payButtonText.text('<?php echo esc_js( '결제 처리 중...' ); ?>');
+                        payButtonSpinner.show();
+                        messageArea.text('').removeClass('mphb-error mphb-success'); // Clear previous messages
                         console.log('Requesting Toss payment. Method:', tossMethodForSDK);
                         let paymentDataPayload = {
-                            amount: { currency: "KRW", value: parseFloat(paymentParamsJS.amount) }, 
+                            amount: { currency: "KRW", value: parseFloat(paymentParamsJS.amount) },
                             orderId: paymentParamsJS.order_id,
-                            orderName: paymentParamsJS.order_name, 
-                            successUrl: paymentParamsJS.success_url, 
+                            orderName: paymentParamsJS.order_name,
+                            successUrl: paymentParamsJS.success_url,
                             failUrl: paymentParamsJS.fail_url,
-                            customerEmail: paymentParamsJS.customer_email, 
-                            customerName: paymentParamsJS.customer_name, 
-                            // customerMobilePhone: paymentParamsJS.customer_mobile_phone, 굳이 필요하지 않을듯
+                            customerEmail: paymentParamsJS.customer_email,
+                            customerName: paymentParamsJS.customer_name,
                         };
 
                         console.log('paymentDataPayload', paymentDataPayload);
 
                         if (tossMethodForSDK === "CARD") {
-                            paymentDataPayload.card = { 
-                                useEscrow: false, 
-                                flowMode: "DEFAULT", 
-                                useCardPoint: paymentParamsJS.js_flags_use_card_point || false, 
-                                useAppCardOnly: paymentParamsJS.js_flags_use_app_card_only || false, 
-                                useInternationalCardOnly: paymentParamsJS.js_flags_is_foreign_card_only === true 
+                            paymentDataPayload.card = {
+                                useEscrow: false,
+                                flowMode: "DEFAULT",
+                                useCardPoint: paymentParamsJS.js_flags_use_card_point || false,
+                                useAppCardOnly: paymentParamsJS.js_flags_use_app_card_only || false,
+                                useInternationalCardOnly: paymentParamsJS.js_flags_is_foreign_card_only === true
                             };
                             if (paymentParamsJS.js_easy_pay_provider_code) {
                                 paymentDataPayload.card.easyPay = paymentParamsJS.js_easy_pay_provider_code;
@@ -538,42 +542,69 @@ class MPHBTossCheckoutView {
                                 console.log('EasyPay options for CARD:', paymentDataPayload.card);
                             }
                         } else if (tossMethodForSDK === "TRANSFER") {
-                            paymentDataPayload.transfer = { 
+                            paymentDataPayload.transfer = {
                                 useEscrow: paymentParamsJS.js_flags_is_escrow_transfer === true,
                             };
                         } else if (tossMethodForSDK === "VIRTUAL_ACCOUNT") {
-                            paymentDataPayload.virtualAccount = { 
-                                cashReceipt: { 
-                                    type: paymentParamsJS.js_flags_vbank_cash_receipt_type || '미발행' 
-                                }, 
-                                useEscrow: false 
+                            paymentDataPayload.virtualAccount = {
+                                cashReceipt: {
+                                    type: paymentParamsJS.js_flags_vbank_cash_receipt_type || '미발행'
+                                },
+                                useEscrow: false
                             };
                         }
                         console.log('Final Toss payload:', JSON.parse(JSON.stringify(paymentDataPayload)));
                         paymentWidgetInstance.requestPayment({ method: tossMethodForSDK, ...paymentDataPayload })
-                            .then(function(response) { 
-                                console.log("TossPayments success (redirecting):", response); 
-                                messageArea.text('<?php echo esc_js( '결제 페이지로 이동합니다...' ); ?>').addClass('mphb-success'); 
+                            .then(function(response) {
+                                console.log("TossPayments success (redirecting):", response);
+                                messageArea.text('<?php echo esc_js( '결제 페이지로 이동합니다...' ); ?>').addClass('mphb-success');
                             })
-                            .catch(function(error) { 
-                                console.error("TossPayments SDK error:", error); 
-                                messageArea.text(error.message || '<?php echo esc_js( '결제 오류 발생.' ); ?>').addClass('mphb-error'); 
+                            .catch(function(error) {
+                                console.error("TossPayments SDK error:", error);
+                                messageArea.text(error.message || '<?php echo esc_js( '결제 오류 발생.' ); ?>').addClass('mphb-error');
                             })
-                            .finally(function() { 
-                                isProcessing = false; 
-                                payButton.prop('disabled', false).removeClass('mphb-processing'); 
-                                payButtonText.text('<?php echo esc_js( '결제 진행하기' ); ?>'); 
-                                console.log("Toss processing finished."); 
+                            .finally(function() {
+                                isProcessing = false;
+                                // Only re-enable button if it's not a success redirect scenario
+                                if (!messageArea.hasClass('mphb-success')) {
+                                   payButton.prop('disabled', false).removeClass('mphb-processing');
+                                   payButtonText.text('<?php echo esc_js( '결제 진행하기' ); ?>');
+                                } else {
+                                    // On success, button can remain disabled as redirection is expected
+                                    payButton.hide(); // Hide button on success as user is being redirected
+                                }
+                                console.log("Toss processing finished.");
                             });
                     }
-                    payButton.prop('disabled', false).show(); 
+
+                    // All SDK and param checks passed, enable the button and set up the click handler
+                    payButton.prop('disabled', false).show();
                     payButton.on('click', requestTossPayment);
-                    console.log("Auto-triggering Toss payment."); 
-                    // requestTossPayment();
+
+                    // Now, check if we should auto-trigger
+                    // An error message might have been rendered by PHP
+                    const initialMessage = messageArea.text().trim();
+                    const hasInitialErrorClass = messageArea.hasClass('mphb-error');
+
+                    if (initialMessage === '' && !hasInitialErrorClass) {
+                        console.log("No initial errors found. Auto-triggering Toss payment.");
+                        requestTossPayment();
+                    } else {
+                        console.log("Skipping auto-trigger for Toss payment due to pre-existing message or error class.");
+                        if (initialMessage) {
+                             console.log("Initial message content: '" + initialMessage + "'");
+                        }
+                        if (hasInitialErrorClass) {
+                             console.log("Initial message has 'mphb-error' class.");
+                        }
+                        // Button is already enabled and visible, user can click if they choose to.
+                        // If there was a PHP error, it's already displayed.
+                    }
+
                 } catch (sdkError) {
                     console.error("TossPayments SDK init error:", sdkError);
                     messageArea.text('<?php echo esc_js( 'SDK 초기화 오류 (JSEI01).' ); ?>').addClass('mphb-error');
-                    payButton.prop('disabled', true).hide();
+                    // payButton.prop('disabled', true).hide(); // Already hidden from initial state
                 }
             });
         </script>
